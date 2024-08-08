@@ -64,7 +64,9 @@ public class eHospitalWebServicesController {
 	public static final String DIAGNOSIS_CONCEPT_UUID = "aa295620-4576-4459-93ae-00bac0de4c77";
 	
 	public enum filterCategory {
-		CHILDREN_ADOLESCENTS
+		CHILDREN_ADOLESCENTS,
+		DIAGNOSIS,
+		ADULTS
 	};
 	
 	/** Logger for this class and subclasses */
@@ -227,6 +229,13 @@ public class eHospitalWebServicesController {
 			}
 		}
 		
+		int totalOpdPatients = 0;
+		for (Patient patient : allPatients) {
+			if (patient != null && (isOpdVisit(patient, null, null) || isOpdRevisit(patient, null, null))) {
+				totalOpdPatients++;
+			}
+		}
+		
 		Map<String, Map<String, Integer>> summary = generateSummary(patientDates);
 		
 		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
@@ -242,6 +251,7 @@ public class eHospitalWebServicesController {
 		groupingObj.put("groupMonth", groupMonth);
 		groupingObj.put("groupWeek", groupWeek);
 		
+		allPatientsObj.put("totalOpdPatients", totalOpdPatients);
 		allPatientsObj.put("totalPatients", allPatients.size());
 		allPatientsObj.put("results", patientList);
 		allPatientsObj.put("summary", groupingObj);
@@ -363,10 +373,22 @@ public class eHospitalWebServicesController {
 		
 		// check filter category and filter patients based on the category
 		if (filterCategory != null) {
-			if (filterCategory == eHospitalWebServicesController.filterCategory.CHILDREN_ADOLESCENTS) {
-				if (age <= 19) {
-					return patientObj;
-				}
+			switch (filterCategory) {
+				case DIAGNOSIS:
+					if (diagnosis != null && diagnosis.toLowerCase().contains(filterCategory.toString())) {
+						return patientObj;
+					}
+					break;
+				case CHILDREN_ADOLESCENTS:
+					if (age <= 19) {
+						return patientObj;
+					}
+					break;
+				case ADULTS:
+					if (age > 19) {
+						return patientObj;
+					}
+					break;
 			}
 		} else {
 			return patientObj;
@@ -484,11 +506,15 @@ public class eHospitalWebServicesController {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
-		List<Patient> allPatients = Context.getPatientService().getAllPatients();
+		if (startDate == null || endDate == null) {
+			return ResponseEntity.badRequest().body("Start date and end date must not be null.");
+		}
 		
+		List<Patient> allOpdPatients = Context.getPatientService().getAllPatients();
+		
+		// Filter patients based on date range
 		List<Patient> filteredPatients = new ArrayList<>();
-		
-		for (Patient patient : allPatients) {
+		for (Patient patient : allOpdPatients) {
 			if (isOpdVisit(patient, startDate, endDate) || isOpdRevisit(patient, startDate, endDate)) {
 				filteredPatients.add(patient);
 			}
@@ -498,12 +524,22 @@ public class eHospitalWebServicesController {
 	}
 	
 	private boolean isOpdVisit(Patient patient, Date startDate, Date endDate) {
+		if (startDate == null || endDate == null) {
+			return Context.getVisitService().getVisitsByPatient(patient).stream()
+			        .anyMatch(visit -> "OPD Visit".equalsIgnoreCase(visit.getVisitType().getName()));
+		}
+		
 		return Context.getVisitService().getVisitsByPatient(patient).stream()
 		        .anyMatch(visit -> visit.getStartDatetime().after(startDate) && visit.getStartDatetime().before(endDate)
 		                && "OPD Visit".equalsIgnoreCase(visit.getVisitType().getName()));
 	}
 	
 	private boolean isOpdRevisit(Patient patient, Date startDate, Date endDate) {
+		if (startDate == null || endDate == null) {
+			return Context.getVisitService().getVisitsByPatient(patient).stream()
+			        .anyMatch(visit -> "OPD Revisit".equalsIgnoreCase(visit.getVisitType().getName()));
+		}
+		
 		return Context.getVisitService().getVisitsByPatient(patient).stream()
 		        .anyMatch(visit -> visit.getStartDatetime().after(startDate) && visit.getStartDatetime().before(endDate)
 		                && "OPD Revisit".equalsIgnoreCase(visit.getVisitType().getName()));
