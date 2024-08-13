@@ -194,6 +194,14 @@ public class eHospitalWebServicesController {
 		return generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate, filterCategory);
 	}
 	
+	public Object generatePatientListObj(HashSet<Patient> allPatients, Date endDate) {
+		return generatePatientListObj(allPatients, new Date(), endDate, null, JsonNodeFactory.instance.objectNode());
+	}
+	
+	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate) {
+		return generatePatientListObj(allPatients, startDate, endDate, null, JsonNodeFactory.instance.objectNode());
+	}
+	
 	private Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
 	        filterCategory filterCategory) {
 		return generatePatientListObj(allPatients, new Date());
@@ -201,14 +209,6 @@ public class eHospitalWebServicesController {
 	
 	private Object generatePatientListObj(HashSet<Patient> allPatients) {
 		return generatePatientListObj(allPatients, new Date());
-	}
-	
-	public Object generatePatientListObj(HashSet<Patient> allPatients, Date endDate) {
-		return generatePatientListObj(allPatients, new Date(), endDate);
-	}
-	
-	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate) {
-		return generatePatientListObj(allPatients, startDate, endDate, null);
 	}
 	
 	/**
