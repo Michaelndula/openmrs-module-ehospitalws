@@ -376,12 +376,16 @@ public class eHospitalWebServicesController {
 		patientObj.put("address", fullAddress);
 		patientObj.put("contact", contact);
 		patientObj.put("alternateContact", alternateContact);
+		patientObj.put("childrenAdolescents", age <= 19 ? true : false);
 		patientObj.put("dateRegistered", dateTimeFormatter.format(patient.getPersonDateCreated()));
 		patientObj.put("timeRegistered",
 		    timeFormatter.format(patient.getPersonDateCreated().toInstant().atZone(ZoneId.systemDefault())));
 		patientObj.put("diagnosis", diagnosis);
 		patientObj.put("OPD Visits", isOpdVisit(patient, startDate, endDate));
 		patientObj.put("OPD Revisit", isOpdRevisit(patient, startDate, endDate));
+		patientObj.put("Dental", isDental(patient, startDate, endDate));
+		patientObj.put("Ultrasound", isUltrasound(patient, startDate, endDate));
+		patientObj.put("Consultation", isConsultation(patient, startDate, endDate));
 		
 		// check filter category and filter patients based on the category
 		if (filterCategory != null) {
