@@ -181,6 +181,11 @@ public class eHospitalWebServicesController {
 		return generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate, filterCategory);
 	}
 	
+	private Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
+	        filterCategory filterCategory) {
+		return generatePatientListObj(allPatients, new Date());
+	}
+	
 	private Object generatePatientListObj(HashSet<Patient> allPatients) {
 		return generatePatientListObj(allPatients, new Date());
 	}
@@ -204,10 +209,9 @@ public class eHospitalWebServicesController {
 	 * @return A JSON string representing the summary of patient data.
 	 */
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
-	        filterCategory filterCategory) {
+	        filterCategory filterCategory, ObjectNode allPatientsObj) {
 		
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
-		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
 		List<Date> patientDates = new ArrayList<>();
 		Calendar startCal = Calendar.getInstance();
@@ -229,13 +233,6 @@ public class eHospitalWebServicesController {
 			}
 		}
 		
-		int totalOpdPatients = 0;
-		for (Patient patient : allPatients) {
-			if (patient != null && (isOpdVisit(patient, null, null) || isOpdRevisit(patient, null, null))) {
-				totalOpdPatients++;
-			}
-		}
-		
 		Map<String, Map<String, Integer>> summary = generateSummary(patientDates);
 		
 		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
@@ -251,7 +248,6 @@ public class eHospitalWebServicesController {
 		groupingObj.put("groupMonth", groupMonth);
 		groupingObj.put("groupWeek", groupWeek);
 		
-		allPatientsObj.put("totalOpdPatients", totalOpdPatients);
 		allPatientsObj.put("totalPatients", allPatients.size());
 		allPatientsObj.put("results", patientList);
 		allPatientsObj.put("summary", groupingObj);
@@ -501,8 +497,7 @@ public class eHospitalWebServicesController {
 	public Object getAllOutPatientsClients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
 	        @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-		
-		// Parse the date strings into Date objects
+
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
@@ -512,15 +507,31 @@ public class eHospitalWebServicesController {
 		
 		List<Patient> allOpdPatients = Context.getPatientService().getAllPatients();
 		
-		// Filter patients based on date range
-		List<Patient> filteredPatients = new ArrayList<>();
+		List<Patient> opdPatients = new ArrayList<>();
+		int totalOpdVisits = 0;
+		int totalOpdRevisits = 0;
+		
 		for (Patient patient : allOpdPatients) {
-			if (isOpdVisit(patient, startDate, endDate) || isOpdRevisit(patient, startDate, endDate)) {
-				filteredPatients.add(patient);
+			boolean isVisit = isOpdVisit(patient, startDate, endDate);
+			boolean isRevisit = isOpdRevisit(patient, startDate, endDate);
+			
+			if (isVisit || isRevisit) {
+				opdPatients.add(patient);
+				if (isVisit) {
+					totalOpdVisits++;
+				}
+				if (isRevisit) {
+					totalOpdRevisits++;
+				}
 			}
 		}
 		
-		return generatePatientListObj(new HashSet<>(filteredPatients), startDate, endDate, filterCategory);
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		allPatientsObj.put("totalOpdPatients", opdPatients.size());
+		allPatientsObj.put("totalOpdVisits", totalOpdVisits);
+		allPatientsObj.put("totalOpdRevisits", totalOpdRevisits);
+		
+		return generatePatientListObj(new HashSet<>(opdPatients), startDate, endDate, filterCategory, allPatientsObj);
 	}
 	
 	private boolean isOpdVisit(Patient patient, Date startDate, Date endDate) {
