@@ -572,7 +572,6 @@ public class eHospitalWebServicesController {
 		}
 		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
-		allPatientsObj.put("totalOpdPatients", opdPatients.size());
 		allPatientsObj.put("totalOpdVisits", totalOpdVisits);
 		allPatientsObj.put("totalOpdRevisits", totalOpdRevisits);
 		
@@ -580,22 +579,12 @@ public class eHospitalWebServicesController {
 	}
 	
 	private static boolean isOpdVisit(Patient patient, Date startDate, Date endDate) {
-		if (startDate == null || endDate == null) {
-			return Context.getVisitService().getVisitsByPatient(patient).stream()
-			        .anyMatch(visit -> "OPD Visit".equalsIgnoreCase(visit.getVisitType().getName()));
-		}
-		
 		return Context.getVisitService().getVisitsByPatient(patient).stream()
 		        .anyMatch(visit -> visit.getStartDatetime().after(startDate) && visit.getStartDatetime().before(endDate)
 		                && "OPD Visit".equalsIgnoreCase(visit.getVisitType().getName()));
 	}
 	
 	private static boolean isOpdRevisit(Patient patient, Date startDate, Date endDate) {
-		if (startDate == null || endDate == null) {
-			return Context.getVisitService().getVisitsByPatient(patient).stream()
-			        .anyMatch(visit -> "OPD Revisit".equalsIgnoreCase(visit.getVisitType().getName()));
-		}
-		
 		return Context.getVisitService().getVisitsByPatient(patient).stream()
 		        .anyMatch(visit -> visit.getStartDatetime().after(startDate) && visit.getStartDatetime().before(endDate)
 		                && "OPD Revisit".equalsIgnoreCase(visit.getVisitType().getName()));
