@@ -16,6 +16,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -63,10 +65,21 @@ public class eHospitalWebServicesController {
 	
 	public static final String DIAGNOSIS_CONCEPT_UUID = "aa295620-4576-4459-93ae-00bac0de4c77";
 	
+	public static final String DENTAL_ENCOUTERTYPE_UUID = "83438e95-60ca-4a76-bcca-c05e5734f836";
+	
+	public static final String ULTRASOUND_ENCOUNTERTYPE_UUID = "001309ab-10e3-4b4d-9706-6982cfabc5fe";
+	
+	public static final String CONSULTATION_ENCOUNTERTYPE_UUID = "f02fecec-4d74-4430-8e59-5150016551e5";
+	
 	public enum filterCategory {
 		CHILDREN_ADOLESCENTS,
 		DIAGNOSIS,
-		ADULTS
+		ADULTS,
+		CONSULTATION,
+		DENTAL,
+		ULTRASOUND,
+		OPD_VISITS,
+		OPD_REVISITS
 	};
 	
 	/** Logger for this class and subclasses */
@@ -74,7 +87,7 @@ public class eHospitalWebServicesController {
 	
 	static SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("dd-MM-yyyy");
 	
-	static SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm:ss");
+	static DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault());
 	
 	private static final Logger logger = Logger.getLogger(eHospitalWebServicesController.class.getName());
 	
@@ -181,16 +194,21 @@ public class eHospitalWebServicesController {
 		return generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate, filterCategory);
 	}
 	
-	private Object generatePatientListObj(HashSet<Patient> allPatients) {
-		return generatePatientListObj(allPatients, new Date());
-	}
-	
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date endDate) {
-		return generatePatientListObj(allPatients, new Date(), endDate);
+		return generatePatientListObj(allPatients, new Date(), endDate, null, JsonNodeFactory.instance.objectNode());
 	}
 	
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate) {
-		return generatePatientListObj(allPatients, startDate, endDate, null);
+		return generatePatientListObj(allPatients, startDate, endDate, null, JsonNodeFactory.instance.objectNode());
+	}
+	
+	private Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
+	        filterCategory filterCategory) {
+		return generatePatientListObj(allPatients, new Date());
+	}
+	
+	private Object generatePatientListObj(HashSet<Patient> allPatients) {
+		return generatePatientListObj(allPatients, new Date());
 	}
 	
 	/**
@@ -204,10 +222,9 @@ public class eHospitalWebServicesController {
 	 * @return A JSON string representing the summary of patient data.
 	 */
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
-	        filterCategory filterCategory) {
+	        filterCategory filterCategory, ObjectNode allPatientsObj) {
 		
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
-		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
 		List<Date> patientDates = new ArrayList<>();
 		Calendar startCal = Calendar.getInstance();
@@ -229,13 +246,6 @@ public class eHospitalWebServicesController {
 			}
 		}
 		
-		int totalOpdPatients = 0;
-		for (Patient patient : allPatients) {
-			if (patient != null && (isOpdVisit(patient, null, null) || isOpdRevisit(patient, null, null))) {
-				totalOpdPatients++;
-			}
-		}
-		
 		Map<String, Map<String, Integer>> summary = generateSummary(patientDates);
 		
 		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
@@ -251,7 +261,6 @@ public class eHospitalWebServicesController {
 		groupingObj.put("groupMonth", groupMonth);
 		groupingObj.put("groupWeek", groupWeek);
 		
-		allPatientsObj.put("totalOpdPatients", totalOpdPatients);
 		allPatientsObj.put("totalPatients", allPatients.size());
 		allPatientsObj.put("results", patientList);
 		allPatientsObj.put("summary", groupingObj);
@@ -367,15 +376,47 @@ public class eHospitalWebServicesController {
 		patientObj.put("address", fullAddress);
 		patientObj.put("contact", contact);
 		patientObj.put("alternateContact", alternateContact);
+		patientObj.put("childrenAdolescents", age <= 19 ? true : false);
 		patientObj.put("dateRegistered", dateTimeFormatter.format(patient.getPersonDateCreated()));
-		patientObj.put("timeRegistered", timeFormatter.format(patient.getPersonDateCreated()));
+		patientObj.put("timeRegistered",
+		    timeFormatter.format(patient.getPersonDateCreated().toInstant().atZone(ZoneId.systemDefault())));
 		patientObj.put("diagnosis", diagnosis);
+		patientObj.put("OPD Visits", isOpdVisit(patient, startDate, endDate));
+		patientObj.put("OPD Revisit", isOpdRevisit(patient, startDate, endDate));
+		patientObj.put("Dental", isDental(patient, startDate, endDate));
+		patientObj.put("Ultrasound", isUltrasound(patient, startDate, endDate));
+		patientObj.put("Consultation", isConsultation(patient, startDate, endDate));
 		
 		// check filter category and filter patients based on the category
 		if (filterCategory != null) {
 			switch (filterCategory) {
 				case DIAGNOSIS:
 					if (diagnosis != null && diagnosis.toLowerCase().contains(filterCategory.toString())) {
+						return patientObj;
+					}
+					break;
+				case DENTAL:
+					if (isDental(patient, startDate, endDate)) {
+						return patientObj;
+					}
+					break;
+				case ULTRASOUND:
+					if (isUltrasound(patient, startDate, endDate)) {
+						return patientObj;
+					}
+					break;
+				case CONSULTATION:
+					if (isConsultation(patient, startDate, endDate)) {
+						return patientObj;
+					}
+					break;
+				case OPD_VISITS:
+					if (isOpdVisit(patient, startDate, endDate)) {
+						return patientObj;
+					}
+					break;
+				case OPD_REVISITS:
+					if (isOpdRevisit(patient, startDate, endDate)) {
 						return patientObj;
 					}
 					break;
@@ -502,7 +543,6 @@ public class eHospitalWebServicesController {
 	        @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
 		
-		// Parse the date strings into Date objects
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
@@ -512,34 +552,40 @@ public class eHospitalWebServicesController {
 		
 		List<Patient> allOpdPatients = Context.getPatientService().getAllPatients();
 		
-		// Filter patients based on date range
-		List<Patient> filteredPatients = new ArrayList<>();
+		List<Patient> opdPatients = new ArrayList<>();
+		int totalOpdVisits = 0;
+		int totalOpdRevisits = 0;
+		
 		for (Patient patient : allOpdPatients) {
-			if (isOpdVisit(patient, startDate, endDate) || isOpdRevisit(patient, startDate, endDate)) {
-				filteredPatients.add(patient);
+			boolean isVisit = isOpdVisit(patient, startDate, endDate);
+			boolean isRevisit = isOpdRevisit(patient, startDate, endDate);
+			
+			if (isVisit || isRevisit) {
+				opdPatients.add(patient);
+				if (isVisit) {
+					totalOpdVisits++;
+				}
+				if (isRevisit) {
+					totalOpdRevisits++;
+				}
 			}
 		}
 		
-		return generatePatientListObj(new HashSet<>(filteredPatients), startDate, endDate, filterCategory);
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		allPatientsObj.put("totalOpdVisits", totalOpdVisits);
+		allPatientsObj.put("totalOpdRevisits", totalOpdRevisits);
+		
+		return generatePatientListObj(new HashSet<>(opdPatients), startDate, endDate, filterCategory, allPatientsObj);
 	}
 	
-	private boolean isOpdVisit(Patient patient, Date startDate, Date endDate) {
-		if (startDate == null || endDate == null) {
-			return Context.getVisitService().getVisitsByPatient(patient).stream()
-			        .anyMatch(visit -> "OPD Visit".equalsIgnoreCase(visit.getVisitType().getName()));
-		}
-		
+	private static boolean isOpdVisit(Patient patient, Date startDate, Date endDate) {
+
 		return Context.getVisitService().getVisitsByPatient(patient).stream()
 		        .anyMatch(visit -> visit.getStartDatetime().after(startDate) && visit.getStartDatetime().before(endDate)
 		                && "OPD Visit".equalsIgnoreCase(visit.getVisitType().getName()));
 	}
 	
-	private boolean isOpdRevisit(Patient patient, Date startDate, Date endDate) {
-		if (startDate == null || endDate == null) {
-			return Context.getVisitService().getVisitsByPatient(patient).stream()
-			        .anyMatch(visit -> "OPD Revisit".equalsIgnoreCase(visit.getVisitType().getName()));
-		}
-		
+	private static boolean isOpdRevisit(Patient patient, Date startDate, Date endDate) {
 		return Context.getVisitService().getVisitsByPatient(patient).stream()
 		        .anyMatch(visit -> visit.getStartDatetime().after(startDate) && visit.getStartDatetime().before(endDate)
 		                && "OPD Revisit".equalsIgnoreCase(visit.getVisitType().getName()));
@@ -561,5 +607,35 @@ public class eHospitalWebServicesController {
 		}
 		
 		return "";
+	}
+	
+	/**
+	 * Checks if a patient has any encounter of a specific type within a given date range.
+	 * 
+	 * @param patient The patient to check.
+	 * @param startDate The start date of the range.
+	 * @param endDate The end date of the range.
+	 * @param encounterTypeUuid The UUID of the encounter type to check for.
+	 * @return True if the patient has an encounter of the specified type within the given date range,
+	 *         false otherwise.
+	 */
+	private static boolean hasEncounterOfType(Patient patient, Date startDate, Date endDate, String encounterTypeUuid) {
+		EncounterType encounterType = Context.getEncounterService().getEncounterTypeByUuid(encounterTypeUuid);
+		List<Encounter> encounters = Context.getEncounterService().getEncountersByPatient(patient);
+		
+		return encounters.stream().anyMatch(encounter -> encounter.getEncounterDatetime().after(startDate)
+		        && encounter.getEncounterDatetime().before(endDate) && encounter.getEncounterType().equals(encounterType));
+	}
+	
+	private static boolean isDental(Patient patient, Date startDate, Date endDate) {
+		return hasEncounterOfType(patient, startDate, endDate, DENTAL_ENCOUTERTYPE_UUID);
+	}
+	
+	private static boolean isUltrasound(Patient patient, Date startDate, Date endDate) {
+		return hasEncounterOfType(patient, startDate, endDate, ULTRASOUND_ENCOUNTERTYPE_UUID);
+	}
+	
+	private static boolean isConsultation(Patient patient, Date startDate, Date endDate) {
+		return hasEncounterOfType(patient, startDate, endDate, CONSULTATION_ENCOUNTERTYPE_UUID);
 	}
 }
