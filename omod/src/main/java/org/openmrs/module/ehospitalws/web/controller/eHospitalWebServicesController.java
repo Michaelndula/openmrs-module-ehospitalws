@@ -741,6 +741,7 @@ public class eHospitalWebServicesController {
 	}
 	
 	private static boolean isOpdVisit(Patient patient, Date startDate, Date endDate) {
+
 		return Context.getVisitService().getVisitsByPatient(patient).stream()
 		        .anyMatch(visit -> visit.getStartDatetime().after(startDate) && visit.getStartDatetime().before(endDate)
 		                && "OPD Visit".equalsIgnoreCase(visit.getVisitType().getName()));
