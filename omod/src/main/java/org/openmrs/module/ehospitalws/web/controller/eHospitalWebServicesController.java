@@ -578,6 +578,168 @@ public class eHospitalWebServicesController {
 		return generatePatientListObj(new HashSet<>(opdPatients), startDate, endDate, filterCategory, allPatientsObj);
 	}
 	
+	@RequestMapping(method = RequestMethod.GET, value = "/consultation")
+	@ResponseBody
+	public Object getConsultationOpdPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		if (startDate == null || endDate == null) {
+			return ResponseEntity.badRequest().body("Start date and end date must not be null.");
+		}
+		
+		List<Patient> allOpdPatients = Context.getPatientService().getAllPatients();
+		
+		List<Patient> consultation = new ArrayList<>();
+		
+		for (Patient patient : allOpdPatients) {
+			boolean isVisit = isOpdVisit(patient, startDate, endDate);
+			boolean isRevisit = isOpdRevisit(patient, startDate, endDate);
+			boolean isConsultation = isConsultation(patient, startDate, endDate);
+			
+			if (isVisit || isRevisit) {
+				if (isConsultation) {
+					consultation.add(patient);
+				}
+			}
+		}
+		
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		
+		return generatePatientListObj(new HashSet<>(consultation), startDate, endDate, filterCategory, allPatientsObj);
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/dental")
+	@ResponseBody
+	public Object getDentalOpdPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		if (startDate == null || endDate == null) {
+			return ResponseEntity.badRequest().body("Start date and end date must not be null.");
+		}
+		
+		List<Patient> allOpdPatients = Context.getPatientService().getAllPatients();
+		
+		List<Patient> dentalPatients = new ArrayList<>();
+		
+		for (Patient patient : allOpdPatients) {
+			boolean isVisit = isOpdVisit(patient, startDate, endDate);
+			boolean isRevisit = isOpdRevisit(patient, startDate, endDate);
+			boolean isDental = isDental(patient, startDate, endDate);
+			
+			if (isVisit || isRevisit) {
+				if (isDental) {
+					dentalPatients.add(patient);
+				}
+			}
+		}
+		
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		
+		return generatePatientListObj(new HashSet<>(dentalPatients), startDate, endDate, filterCategory, allPatientsObj);
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/ultrasound")
+	@ResponseBody
+	public Object getUltrasoundOpdPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		if (startDate == null || endDate == null) {
+			return ResponseEntity.badRequest().body("Start date and end date must not be null.");
+		}
+		
+		List<Patient> allOpdPatients = Context.getPatientService().getAllPatients();
+		
+		List<Patient> ultrasoundPatients = new ArrayList<>();
+		
+		for (Patient patient : allOpdPatients) {
+			boolean isVisit = isOpdVisit(patient, startDate, endDate);
+			boolean isRevisit = isOpdRevisit(patient, startDate, endDate);
+			boolean isUltrasound = isUltrasound(patient, startDate, endDate);
+			
+			if (isVisit || isRevisit) {
+				if (isUltrasound) {
+					ultrasoundPatients.add(patient);
+				}
+			}
+		}
+		
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		
+		return generatePatientListObj(new HashSet<>(ultrasoundPatients), startDate, endDate, filterCategory, allPatientsObj);
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/opdVisits")
+	@ResponseBody
+	public Object getOpdVisits(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		if (startDate == null || endDate == null) {
+			return ResponseEntity.badRequest().body("Start date and end date must not be null.");
+		}
+		
+		List<Patient> allOpdPatients = Context.getPatientService().getAllPatients();
+		
+		List<Patient> opdVisitsPatients = new ArrayList<>();
+		
+		for (Patient patient : allOpdPatients) {
+			boolean isVisit = isOpdVisit(patient, startDate, endDate);
+			
+			if (isVisit) {
+				opdVisitsPatients.add(patient);
+			}
+		}
+		
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		
+		return generatePatientListObj(new HashSet<>(opdVisitsPatients), startDate, endDate, filterCategory, allPatientsObj);
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/opdRevisits")
+	@ResponseBody
+	public Object getOpdReVisits(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		if (startDate == null || endDate == null) {
+			return ResponseEntity.badRequest().body("Start date and end date must not be null.");
+		}
+		
+		List<Patient> allOpdPatients = Context.getPatientService().getAllPatients();
+		
+		List<Patient> opdRevisitPatients = new ArrayList<>();
+		
+		for (Patient patient : allOpdPatients) {
+			boolean isReVisit = isOpdRevisit(patient, startDate, endDate);
+			
+			if (isReVisit) {
+				opdRevisitPatients.add(patient);
+			}
+		}
+		
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		
+		return generatePatientListObj(new HashSet<>(opdRevisitPatients), startDate, endDate, filterCategory, allPatientsObj);
+	}
+	
 	private static boolean isOpdVisit(Patient patient, Date startDate, Date endDate) {
 		return Context.getVisitService().getVisitsByPatient(patient).stream()
 		        .anyMatch(visit -> visit.getStartDatetime().after(startDate) && visit.getStartDatetime().before(endDate)
