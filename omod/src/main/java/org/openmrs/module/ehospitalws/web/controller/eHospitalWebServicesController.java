@@ -64,7 +64,9 @@ public class eHospitalWebServicesController {
 	public static final String DIAGNOSIS_CONCEPT_UUID = "aa295620-4576-4459-93ae-00bac0de4c77";
 	
 	public enum filterCategory {
-		CHILDREN_ADOLESCENTS
+		CHILDREN_ADOLESCENTS,
+		DIAGNOSIS,
+		ADULTS
 	};
 	
 	/** Logger for this class and subclasses */
@@ -179,6 +181,11 @@ public class eHospitalWebServicesController {
 		return generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate, filterCategory);
 	}
 	
+	private Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
+	        filterCategory filterCategory) {
+		return generatePatientListObj(allPatients, new Date());
+	}
+	
 	private Object generatePatientListObj(HashSet<Patient> allPatients) {
 		return generatePatientListObj(allPatients, new Date());
 	}
@@ -202,10 +209,9 @@ public class eHospitalWebServicesController {
 	 * @return A JSON string representing the summary of patient data.
 	 */
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
-	        filterCategory filterCategory) {
+	        filterCategory filterCategory, ObjectNode allPatientsObj) {
 		
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
-		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
 		List<Date> patientDates = new ArrayList<>();
 		Calendar startCal = Calendar.getInstance();
@@ -363,10 +369,22 @@ public class eHospitalWebServicesController {
 		
 		// check filter category and filter patients based on the category
 		if (filterCategory != null) {
-			if (filterCategory == eHospitalWebServicesController.filterCategory.CHILDREN_ADOLESCENTS) {
-				if (age <= 19) {
-					return patientObj;
-				}
+			switch (filterCategory) {
+				case DIAGNOSIS:
+					if (diagnosis != null && diagnosis.toLowerCase().contains(filterCategory.toString())) {
+						return patientObj;
+					}
+					break;
+				case CHILDREN_ADOLESCENTS:
+					if (age <= 19) {
+						return patientObj;
+					}
+					break;
+				case ADULTS:
+					if (age > 19) {
+						return patientObj;
+					}
+					break;
 			}
 		} else {
 			return patientObj;
@@ -479,22 +497,40 @@ public class eHospitalWebServicesController {
 	public Object getAllOutPatientsClients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
 	        @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-		
-		// Parse the date strings into Date objects
+
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
-		List<Patient> allPatients = Context.getPatientService().getAllPatients();
+		if (startDate == null || endDate == null) {
+			return ResponseEntity.badRequest().body("Start date and end date must not be null.");
+		}
 		
-		List<Patient> filteredPatients = new ArrayList<>();
+		List<Patient> allOpdPatients = Context.getPatientService().getAllPatients();
 		
-		for (Patient patient : allPatients) {
-			if (isOpdVisit(patient, startDate, endDate) || isOpdRevisit(patient, startDate, endDate)) {
-				filteredPatients.add(patient);
+		List<Patient> opdPatients = new ArrayList<>();
+		int totalOpdVisits = 0;
+		int totalOpdRevisits = 0;
+		
+		for (Patient patient : allOpdPatients) {
+			boolean isVisit = isOpdVisit(patient, startDate, endDate);
+			boolean isRevisit = isOpdRevisit(patient, startDate, endDate);
+			
+			if (isVisit || isRevisit) {
+				opdPatients.add(patient);
+				if (isVisit) {
+					totalOpdVisits++;
+				}
+				if (isRevisit) {
+					totalOpdRevisits++;
+				}
 			}
 		}
 		
-		return generatePatientListObj(new HashSet<>(filteredPatients), startDate, endDate, filterCategory);
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		allPatientsObj.put("totalOpdVisits", totalOpdVisits);
+		allPatientsObj.put("totalOpdRevisits", totalOpdRevisits);
+		
+		return generatePatientListObj(new HashSet<>(opdPatients), startDate, endDate, filterCategory, allPatientsObj);
 	}
 	
 	private boolean isOpdVisit(Patient patient, Date startDate, Date endDate) {
