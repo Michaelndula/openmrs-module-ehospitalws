@@ -520,18 +520,25 @@ public class eHospitalWebServicesController {
 			return ResponseEntity.badRequest().body("Start date and end date must not be null.");
 		}
 		
-		// Fetch OPD Visits and Revisit Patients directly from the database
-		List<Patient> opdPatients = getOpdPatients(startDate, endDate, page, size);
+		List<Patient> opdPatients = getOpdPatients(startDate, endDate);
 		
 		int totalOpdVisits = countOpdVisits(startDate, endDate);
 		int totalOpdRevisits = countOpdRevisits(startDate, endDate);
 		
-		// Create response object
+		int startIndex = page * size;
+		int endIndex = Math.min(startIndex + size, opdPatients.size());
+		
+		if (startIndex > opdPatients.size()) {
+			return ResponseEntity.badRequest().body("Page index out of bounds.");
+		}
+		
+		List<Patient> paginatedPatients = opdPatients.subList(startIndex, endIndex);
+		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		allPatientsObj.put("totalOpdVisits", totalOpdVisits);
 		allPatientsObj.put("totalOpdRevisits", totalOpdRevisits);
 		
-		return generatePatientListObj(new HashSet<>(opdPatients), startDate, endDate, filterCategory, allPatientsObj);
+		return generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate, filterCategory, allPatientsObj);
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/consultation")
@@ -581,12 +588,18 @@ public class eHospitalWebServicesController {
 		// Fetch OPD visits directly based on visits within the date range
 		List<Patient> opdVisitPatients = Context.getVisitService()
 		        .getVisits(null, null, null, null, startDate, endDate, null, null, null, true, false).stream()
-		        .filter(visit -> OPD_VISIT_UUID.equals(visit.getVisitType().getUuid())).skip((long) page * size).limit(size)
-		        .map(Visit::getPatient).distinct().collect(Collectors.toList());
+		        .filter(visit -> OPD_VISIT_UUID.equals(visit.getVisitType().getUuid())).map(Visit::getPatient).distinct()
+		        .collect(Collectors.toList());
+		
+		int startIndex = page * size;
+		int endIndex = Math.min(startIndex + size, opdVisitPatients.size());
+		
+		List<Patient> outpatientVisitsClients = opdVisitPatients.subList(startIndex, endIndex);
 		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
-		return generatePatientListObj(new HashSet<>(opdVisitPatients), startDate, endDate, filterCategory, allPatientsObj);
+		return generatePatientListObj(new HashSet<>(outpatientVisitsClients), startDate, endDate, filterCategory,
+		    allPatientsObj);
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/opdRevisits")
@@ -606,12 +619,18 @@ public class eHospitalWebServicesController {
 		// Fetch OPD revisits directly based on visits within the date range
 		List<Patient> opdRevisitPatients = Context.getVisitService()
 		        .getVisits(null, null, null, null, startDate, endDate, null, null, null, true, false).stream()
-		        .filter(visit -> OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid())).skip((long) page * size)
-		        .limit(size).map(Visit::getPatient).distinct().collect(Collectors.toList());
+		        .filter(visit -> OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid())).map(Visit::getPatient).distinct()
+		        .collect(Collectors.toList());
+		
+		int startIndex = page * size;
+		int endIndex = Math.min(startIndex + size, opdRevisitPatients.size());
+		
+		List<Patient> outpatientRevisitsClients = opdRevisitPatients.subList(startIndex, endIndex);
 		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
-		return generatePatientListObj(new HashSet<>(opdRevisitPatients), startDate, endDate, filterCategory, allPatientsObj);
+		return generatePatientListObj(new HashSet<>(outpatientRevisitsClients), startDate, endDate, filterCategory,
+		    allPatientsObj);
 	}
 	
 	private Object handleOpdPatientsRequest(String qStartDate, String qEndDate, filterCategory filterCategory, int page,
@@ -624,11 +643,20 @@ public class eHospitalWebServicesController {
 			return ResponseEntity.badRequest().body("Start date and end date must not be null.");
 		}
 		
-		List<Patient> opdPatients = getOpdPatients(startDate, endDate, page, size, typeFilter);
+		List<Patient> opdPatients = getOpdPatients(startDate, endDate, typeFilter);
+		
+		int startIndex = page * size;
+		int endIndex = Math.min(startIndex + size, opdPatients.size());
+		
+		if (startIndex >= opdPatients.size()) {
+			return ResponseEntity.badRequest().body("Page index out of bounds.");
+		}
+		
+		List<Patient> outpatientClients = opdPatients.subList(startIndex, endIndex);
 		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
-		return generatePatientListObj(new HashSet<>(opdPatients), startDate, endDate, filterCategory, allPatientsObj);
+		return generatePatientListObj(new HashSet<>(outpatientClients), startDate, endDate, filterCategory, allPatientsObj);
 	}
 	
 	private static boolean isOpdVisit(Patient patient, Date startDate, Date endDate) {
@@ -643,22 +671,21 @@ public class eHospitalWebServicesController {
 		                && OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid()));
 	}
 	
-	private List<Patient> getOpdPatients(Date startDate, Date endDate, int page, int size) {
+	private List<Patient> getOpdPatients(Date startDate, Date endDate) {
 		return Context.getVisitService().getVisits(null, null, null, null, startDate, endDate, null, null, null, true, false)
 		        .stream()
 		        .filter(visit -> OPD_VISIT_UUID.equals(visit.getVisitType().getUuid())
 		                || OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid()))
-		        .skip((long) page * size).limit(size).map(Visit::getPatient).distinct().collect(Collectors.toList());
+		        .map(Visit::getPatient).distinct().collect(Collectors.toList());
 	}
 	
-	private List<Patient> getOpdPatients(Date startDate, Date endDate, int page, int size,
-	        BiPredicate<Patient, DateRange> typeFilter) {
+	private List<Patient> getOpdPatients(Date startDate, Date endDate, BiPredicate<Patient, DateRange> typeFilter) {
 		return Context.getVisitService().getVisits(null, null, null, null, startDate, endDate, null, null, null, true, false)
 		        .stream()
 		        .filter(visit -> (OPD_VISIT_UUID.equals(visit.getVisitType().getUuid())
 		                || OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid()))
 		                && typeFilter.test(visit.getPatient(), new DateRange(startDate, endDate)))
-		        .skip((long) page * size).limit(size).map(Visit::getPatient).distinct().collect(Collectors.toList());
+		        .map(Visit::getPatient).distinct().collect(Collectors.toList());
 	}
 	
 	private int countOpdVisits(Date startDate, Date endDate) {
@@ -668,8 +695,9 @@ public class eHospitalWebServicesController {
 	}
 	
 	private int countOpdRevisits(Date startDate, Date endDate) {
-		return (int) Context.getVisitService().getVisits(null, null, null, null, null, null, null, null, null, true, false)
-		        .stream().filter(visit -> OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid())).count();
+		return (int) Context.getVisitService()
+		        .getVisits(null, null, null, null, startDate, endDate, null, null, null, true, false).stream()
+		        .filter(visit -> OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid())).count();
 	}
 	
 	private static String getPatientDiagnosis(Patient patient, Date startDate, Date endDate) {
