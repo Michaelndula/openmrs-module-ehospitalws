@@ -48,18 +48,6 @@ import java.util.Date;
 @RequestMapping(value = "/rest/" + RestConstants.VERSION_1 + "/ehospital")
 public class eHospitalWebServicesController {
 	
-	private static final String DB_CONTAINER = "ehospital20-db-1";
-	
-	private static final String DB_USER = "root";
-	
-	private static final String DB_PASS = "openmrs";
-	
-	private static final String DB_NAME = "openmrs";
-	
-	private static final String BACKUP_DIR = "/opt";
-	
-	private static final String LOCAL_BACKUP_DIR = System.getProperty("user.home") + "/Data_Backup";
-	
 	public static final String IMPRESSION_DIAGNOSIS_CONCEPT_UUID = "759bf916-5549-4fe1-a588-a399ba04dfd5";
 	
 	public static final String IMNCI_DIAGNOSIS_CONCEPT_UUID = "7e0cb443-eece-40da-9acd-94888a7695b1";
@@ -424,88 +412,6 @@ public class eHospitalWebServicesController {
 		return null;
 	}
 	
-	@RequestMapping(method = RequestMethod.POST, value = "/backupDatabase")
-	@ResponseBody
-	public String backupDatabase(HttpServletRequest request) {
-		String backupFileName = "SJH_DATA_BACKUP_" + System.currentTimeMillis() + ".sql";
-		String backupFilePath = BACKUP_DIR + "/" + backupFileName;
-		
-		// Execute Docker command to create database backup
-		String[] dockerCommand = { "docker", "exec", DB_CONTAINER, "mysqldump", "-u", DB_USER, "-p" + DB_PASS, DB_NAME, ">",
-		        backupFilePath };
-		try {
-			ProcessBuilder processBuilder = new ProcessBuilder(dockerCommand);
-			Process process = processBuilder.start();
-			int exitCode = process.waitFor();
-			if (exitCode != 0) {
-				return "Failed to create backup.";
-			}
-		}
-		catch (IOException | InterruptedException e) {
-			e.printStackTrace();
-			return "Failed to create backup: " + e.getMessage();
-		}
-		
-		// Copy backup file from Docker container to local directory
-		String[] copyCommand = { "docker", "cp", DB_CONTAINER + ":" + backupFilePath, LOCAL_BACKUP_DIR };
-		try {
-			ProcessBuilder copyProcessBuilder = new ProcessBuilder(copyCommand);
-			Process copyProcess = copyProcessBuilder.start();
-			int copyExitCode = copyProcess.waitFor();
-			if (copyExitCode != 0) {
-				return "Failed to copy backup file to local directory.";
-			}
-		}
-		catch (IOException | InterruptedException e) {
-			e.printStackTrace();
-			return "Failed to copy backup file: " + e.getMessage();
-		}
-		
-		return "Backup completed: " + backupFileName + " and file copied to " + LOCAL_BACKUP_DIR + " successfully.";
-	}
-	
-	@RequestMapping(method = RequestMethod.GET, value = "/downloadBackup")
-	@ResponseBody
-	public void downloadBackup(HttpServletRequest request, HttpServletResponse response) {
-		File localBackupDir = new File(LOCAL_BACKUP_DIR);
-		File[] files = localBackupDir.listFiles();
-		if (files != null && files.length > 0) {
-			// Find the latest backup file
-			File latestBackup = Arrays.stream(files).filter(file -> file.getName().startsWith("SJH_DATA_BACKUP_"))
-			        .max(Comparator.comparing(File::lastModified)).orElse(null);
-			
-			if (latestBackup != null) {
-				try {
-					response.setContentType("application/octet-stream");
-					response.setHeader("Content-Disposition", "attachment; filename=\"" + latestBackup.getName() + "\"");
-					Files.copy(Paths.get(latestBackup.getPath()), response.getOutputStream());
-					response.getOutputStream().flush();
-				}
-				catch (IOException e) {
-					e.printStackTrace();
-					// Handle download error
-				}
-			} else {
-				// Handle no backup file found
-				response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-				try {
-					response.getWriter().println("No backup file found.");
-				}
-				catch (IOException ex) {
-					ex.printStackTrace();
-				}
-			}
-		} else {
-			response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-			try {
-				response.getWriter().println("No backup files available for download.");
-			}
-			catch (IOException ex) {
-				ex.printStackTrace();
-			}
-		}
-	}
-	
 	@RequestMapping(method = RequestMethod.GET, value = "/outPatientClients")
 	@ResponseBody
 	public Object getAllOutPatientsClients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
@@ -704,8 +610,6 @@ public class eHospitalWebServicesController {
 		
 		List<Concept> diagnosisConcept = new ArrayList<>();
 		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(IMPRESSION_DIAGNOSIS_CONCEPT_UUID));
-		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(IMNCI_DIAGNOSIS_CONCEPT_UUID));
-		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(DIAGNOSIS_CONCEPT_UUID));
 		
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
 		    diagnosisConcept, null, null, null, null, null, null, startDate, endDate, false);
