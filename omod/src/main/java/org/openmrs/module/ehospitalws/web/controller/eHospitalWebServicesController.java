@@ -52,6 +52,16 @@ public class eHospitalWebServicesController {
 	
 	public static final String OTHER_DIAGNOSIS = "410d7684-2045-4eff-9af3-1fb57a406123";
 	
+	public static final String OTHER_MENINGITIS = "b0fef4a0-a77b-4cce-8a1b-d60d2bcd6e8e";
+	
+	public static final String OTHER_BITES = "4b503f44-f9ff-4444-a8bd-2c928c3ae5c4";
+	
+	public static final String OTHER_RESPIRATORY_DISEASE = "33d8508e-fdf0-499e-bf7a-a8cc2c1be09a";
+	
+	public static final String OTHER_INJURIES = "7e57cd52-4bd0-45ed-9dd1-582dfe7cad60";
+	
+	public static final String OTHER_CONVULSIVE_DISORDER = "4dbab2e3-d47d-49dc-8dbe-e9a83567f230";
+	
 	public static final String IMNCI_DIAGNOSIS_CONCEPT_UUID = "7e0cb443-eece-40da-9acd-94888a7695b1";
 	
 	public static final String DIAGNOSIS_CONCEPT_UUID = "aa295620-4576-4459-93ae-00bac0de4c77";
@@ -613,10 +623,15 @@ public class eHospitalWebServicesController {
 		List<Concept> diagnosisConcept = new ArrayList<>();
 		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(IMPRESSION_DIAGNOSIS_CONCEPT_UUID));
 		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(OTHER_DIAGNOSIS));
+		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(OTHER_MENINGITIS));
+		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(OTHER_BITES));
+		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(OTHER_RESPIRATORY_DISEASE));
+		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(OTHER_INJURIES));
+		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(OTHER_CONVULSIVE_DISORDER));
 		
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
 		    diagnosisConcept, null, null, null, null, null, null, startDate, endDate, false);
-
+		
 		if (!obsList.isEmpty()) {
 			Obs diagnosisObs = obsList.get(0);
 			if (diagnosisObs.getValueCoded() != null) {
