@@ -50,6 +50,8 @@ public class eHospitalWebServicesController {
 	
 	public static final String IMPRESSION_DIAGNOSIS_CONCEPT_UUID = "759bf916-5549-4fe1-a588-a399ba04dfd5";
 	
+	public static final String OTHER_DIAGNOSIS = "410d7684-2045-4eff-9af3-1fb57a406123";
+	
 	public static final String IMNCI_DIAGNOSIS_CONCEPT_UUID = "7e0cb443-eece-40da-9acd-94888a7695b1";
 	
 	public static final String DIAGNOSIS_CONCEPT_UUID = "aa295620-4576-4459-93ae-00bac0de4c77";
@@ -610,13 +612,18 @@ public class eHospitalWebServicesController {
 		
 		List<Concept> diagnosisConcept = new ArrayList<>();
 		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(IMPRESSION_DIAGNOSIS_CONCEPT_UUID));
+		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(OTHER_DIAGNOSIS));
 		
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
 		    diagnosisConcept, null, null, null, null, null, null, startDate, endDate, false);
-		
+
 		if (!obsList.isEmpty()) {
 			Obs diagnosisObs = obsList.get(0);
-			return diagnosisObs.getValueText();
+			if (diagnosisObs.getValueCoded() != null) {
+				return diagnosisObs.getValueCoded().getName().getName();
+			} else if (diagnosisObs.getValueText() != null) {
+				return diagnosisObs.getValueText();
+			}
 		}
 		
 		return "";
