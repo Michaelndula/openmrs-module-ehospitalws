@@ -96,4 +96,17 @@ public class Constants {
         return null;
     }
 
+    public static Double getPatientHeight(Patient patient) {
+        List<Obs> heightObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+                null, Collections.singletonList(Context.getConceptService().getConceptByUuid(HEIGHT_UUID)), null,
+                null, null, null, null, null, null, null, false);
+
+        if (!heightObs.isEmpty()) {
+            Obs heightObservation = heightObs.get(0);
+            return heightObservation.getValueNumeric();
+        }
+
+        return null;
+    }
+
 }
