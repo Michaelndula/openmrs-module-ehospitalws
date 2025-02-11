@@ -109,6 +109,15 @@ public class Constants {
         return null;
     }
 
+    public static Double getPatientSystolicPressure(Patient patient) {
+        List<Obs> systolicPressureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+                null, Collections.singletonList(Context.getConceptService().getConceptByUuid(SYSTOLIC_BLOOD_PRESSURE_UUID)), null,
+                null, null, null, null, null, null, null, false);
+
+        if (!systolicPressureObs.isEmpty()) {
+            Obs systolicPressureObservation = systolicPressureObs.get(0);
+            return systolicPressureObservation.getValueNumeric();
+
     public static Double getPatientDiastolicPressure(Patient patient) {
         List<Obs> diastolicPressureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
                 null, Collections.singletonList(Context.getConceptService().getConceptByUuid(DIASTOLIC_BLOOD_PRESSURE_UUID)), null,
