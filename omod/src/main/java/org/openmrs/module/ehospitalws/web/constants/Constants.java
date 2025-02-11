@@ -109,4 +109,17 @@ public class Constants {
         return null;
     }
 
+    public static Double getPatientBMI(Patient patient) {
+        List<Obs> bmiObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+                null, Collections.singletonList(Context.getConceptService().getConceptByUuid(BMI_UUID)), null,
+                null, null, null, null, null, null, null, false);
+
+        if (!bmiObs.isEmpty()) {
+            Obs bmiObservation = bmiObs.get(0);
+            return bmiObservation.getValueNumeric();
+        }
+
+        return null;
+    }
+
 }
