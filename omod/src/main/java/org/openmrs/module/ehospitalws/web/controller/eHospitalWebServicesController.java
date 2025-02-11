@@ -62,10 +62,6 @@ public class eHospitalWebServicesController {
 	
 	public static final String OTHER_CONVULSIVE_DISORDER = "4dbab2e3-d47d-49dc-8dbe-e9a83567f230";
 	
-	public static final String IMNCI_DIAGNOSIS_CONCEPT_UUID = "7e0cb443-eece-40da-9acd-94888a7695b1";
-	
-	public static final String DIAGNOSIS_CONCEPT_UUID = "aa295620-4576-4459-93ae-00bac0de4c77";
-	
 	public static final String DENTAL_ENCOUTERTYPE_UUID = "83438e95-60ca-4a76-bcca-c05e5734f836";
 	
 	public static final String ULTRASOUND_ENCOUNTERTYPE_UUID = "001309ab-10e3-4b4d-9706-6982cfabc5fe";
@@ -618,7 +614,7 @@ public class eHospitalWebServicesController {
 		        .filter(visit -> OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid())).count();
 	}
 	
-	private static String getPatientDiagnosis(Patient patient, Date startDate, Date endDate) {
+	public static String getPatientDiagnosis(Patient patient, Date startDate, Date endDate) {
 		
 		List<Concept> diagnosisConcept = new ArrayList<>();
 		diagnosisConcept.add(Context.getConceptService().getConceptByUuid(IMPRESSION_DIAGNOSIS_CONCEPT_UUID));
