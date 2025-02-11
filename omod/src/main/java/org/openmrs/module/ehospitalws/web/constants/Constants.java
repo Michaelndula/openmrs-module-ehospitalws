@@ -117,6 +117,41 @@ public class Constants {
         if (!systolicPressureObs.isEmpty()) {
             Obs systolicPressureObservation = systolicPressureObs.get(0);
             return systolicPressureObservation.getValueNumeric();
+
+    public static Double getPatientDiastolicPressure(Patient patient) {
+        List<Obs> diastolicPressureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+                null, Collections.singletonList(Context.getConceptService().getConceptByUuid(DIASTOLIC_BLOOD_PRESSURE_UUID)), null,
+                null, null, null, null, null, null, null, false);
+
+        if (!diastolicPressureObs.isEmpty()) {
+            Obs diastolicPressureObservation = diastolicPressureObs.get(0);
+            return diastolicPressureObservation.getValueNumeric();
+
+    public static Double getPatientHeartRate(Patient patient) {
+        List<Obs> heartRateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+                null, Collections.singletonList(Context.getConceptService().getConceptByUuid(PULSE_RATE_UUID)), null,
+                null, null, null, null, null, null, null, false);
+
+        if (!heartRateObs.isEmpty()) {
+            Obs heartRateObservation = heartRateObs.get(0);
+            return heartRateObservation.getValueNumeric();
+
+    public static Double getPatientTemperature(Patient patient) {
+        List<Obs> temperatureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+                null, Collections.singletonList(Context.getConceptService().getConceptByUuid(TEMPERATURE_UUID)), null,
+                null, null, null, null, null, null, null, false);
+
+        if (!temperatureObs.isEmpty()) {
+            Obs temperatureObservation = temperatureObs.get(0);
+            return temperatureObservation.getValueNumeric();
+    public static Double getPatientBMI(Patient patient) {
+        List<Obs> bmiObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+                null, Collections.singletonList(Context.getConceptService().getConceptByUuid(BMI_UUID)), null,
+                null, null, null, null, null, null, null, false);
+
+        if (!bmiObs.isEmpty()) {
+            Obs bmiObservation = bmiObs.get(0);
+            return bmiObservation.getValueNumeric();
         }
 
         return null;
