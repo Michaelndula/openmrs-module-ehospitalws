@@ -6,10 +6,7 @@ import org.openmrs.parameter.EncounterSearchCriteria;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.openmrs.module.ehospitalws.web.constants.SharedConcepts.*;
@@ -110,13 +107,28 @@ public class Constants {
     }
 
     public static String getPatientDiagnosis(Patient patient) {
+
+        List<Concept> diagnosisConcepts = new ArrayList<>();
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(IMPRESSION_DIAGNOSIS_CONCEPT_UUID));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_DIAGNOSIS));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_MENINGITIS));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_BITES));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_RESPIRATORY_DISEASE));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_INJURIES));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_CONVULSIVE_DISORDER));
+
+
         List<Obs> diagnosisObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-                null, Collections.singletonList(Context.getConceptService().getConceptByUuid(IMPRESSION_DIAGNOSIS_CONCEPT_UUID)), null,
+                null, diagnosisConcepts, null,
                 null, null, null, null, null, null, null, false);
 
         if (!diagnosisObs.isEmpty()) {
             Obs diagnosisObservation = diagnosisObs.get(0);
-            return diagnosisObservation.getValueCoded().getName().getName() ;
+            if (diagnosisObservation.getValueCoded() != null) {
+                return diagnosisObservation.getValueCoded().getName().getName();
+            } else if (diagnosisObservation.getValueText() != null) {
+                return diagnosisObservation.getValueText();
+            }
         }
 
         return null;
