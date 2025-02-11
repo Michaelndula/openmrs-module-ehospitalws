@@ -109,4 +109,17 @@ public class Constants {
         return null;
     }
 
+    public static String getPatientDiagnosis(Patient patient) {
+        List<Obs> diagnosisObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+                null, Collections.singletonList(Context.getConceptService().getConceptByUuid(IMPRESSION_DIAGNOSIS_CONCEPT_UUID)), null,
+                null, null, null, null, null, null, null, false);
+
+        if (!diagnosisObs.isEmpty()) {
+            Obs diagnosisObservation = diagnosisObs.get(0);
+            return diagnosisObservation.getValueCoded().getName().getName() ;
+        }
+
+        return null;
+    }
+
 }

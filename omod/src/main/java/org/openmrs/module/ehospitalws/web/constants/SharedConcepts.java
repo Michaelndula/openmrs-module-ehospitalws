@@ -8,6 +8,5 @@ public class SharedConcepts {
     public static final String DIASTOLIC_BLOOD_PRESSURE_UUID = "5086AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
     public static final String SYSTOLIC_BLOOD_PRESSURE_UUID = "5085AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
     public static final String PULSE_RATE_UUID = "5087AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-    public static final String IMNCI_DIAGNOSIS_CONCEPT_UUID = "7e0cb443-eece-40da-9acd-94888a7695b1";
-    public static final String DIAGNOSIS_CONCEPT_UUID = "aa295620-4576-4459-93ae-00bac0de4c77";
+    public static final String IMPRESSION_DIAGNOSIS_CONCEPT_UUID = "759bf916-5549-4fe1-a588-a399ba04dfd5";
 }
