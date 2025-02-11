@@ -109,6 +109,15 @@ public class Constants {
         return null;
     }
 
+    public static Double getPatientHeartRate(Patient patient) {
+        List<Obs> heartRateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+                null, Collections.singletonList(Context.getConceptService().getConceptByUuid(PULSE_RATE_UUID)), null,
+                null, null, null, null, null, null, null, false);
+
+        if (!heartRateObs.isEmpty()) {
+            Obs heartRateObservation = heartRateObs.get(0);
+            return heartRateObservation.getValueNumeric();
+
     public static Double getPatientTemperature(Patient patient) {
         List<Obs> temperatureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
                 null, Collections.singletonList(Context.getConceptService().getConceptByUuid(TEMPERATURE_UUID)), null,
