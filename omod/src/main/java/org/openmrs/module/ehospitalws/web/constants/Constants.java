@@ -6,10 +6,7 @@ import org.openmrs.parameter.EncounterSearchCriteria;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.openmrs.module.ehospitalws.web.constants.SharedConcepts.*;
@@ -108,6 +105,30 @@ public class Constants {
 
         return null;
     }
+
+    public static String getPatientDiagnosis(Patient patient) {
+
+        List<Concept> diagnosisConcepts = new ArrayList<>();
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(IMPRESSION_DIAGNOSIS_CONCEPT_UUID));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_DIAGNOSIS));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_MENINGITIS));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_BITES));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_RESPIRATORY_DISEASE));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_INJURIES));
+        diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_CONVULSIVE_DISORDER));
+
+
+        List<Obs> diagnosisObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+                null, diagnosisConcepts, null,
+                null, null, null, null, null, null, null, false);
+
+        if (!diagnosisObs.isEmpty()) {
+            Obs diagnosisObservation = diagnosisObs.get(0);
+            if (diagnosisObservation.getValueCoded() != null) {
+                return diagnosisObservation.getValueCoded().getName().getName();
+            } else if (diagnosisObservation.getValueText() != null) {
+                return diagnosisObservation.getValueText();
+            }
 
     public static Double getPatientSystolicPressure(Patient patient) {
         List<Obs> systolicPressureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
