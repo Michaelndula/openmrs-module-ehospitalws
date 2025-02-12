@@ -129,6 +129,10 @@ public class Constants {
             } else if (diagnosisObservation.getValueText() != null) {
                 return diagnosisObservation.getValueText();
             }
+        }
+
+        return null;
+    }
 
     public static Double getPatientSystolicPressure(Patient patient) {
         List<Obs> systolicPressureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
@@ -138,6 +142,10 @@ public class Constants {
         if (!systolicPressureObs.isEmpty()) {
             Obs systolicPressureObservation = systolicPressureObs.get(0);
             return systolicPressureObservation.getValueNumeric();
+        }
+
+        return null;
+    }
 
     public static Double getPatientDiastolicPressure(Patient patient) {
         List<Obs> diastolicPressureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
@@ -147,6 +155,10 @@ public class Constants {
         if (!diastolicPressureObs.isEmpty()) {
             Obs diastolicPressureObservation = diastolicPressureObs.get(0);
             return diastolicPressureObservation.getValueNumeric();
+        }
+        return null;
+
+    }
 
     public static Double getPatientHeartRate(Patient patient) {
         List<Obs> heartRateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
@@ -156,6 +168,10 @@ public class Constants {
         if (!heartRateObs.isEmpty()) {
             Obs heartRateObservation = heartRateObs.get(0);
             return heartRateObservation.getValueNumeric();
+        }
+
+        return null;
+    }
 
     public static Double getPatientTemperature(Patient patient) {
         List<Obs> temperatureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
@@ -165,6 +181,11 @@ public class Constants {
         if (!temperatureObs.isEmpty()) {
             Obs temperatureObservation = temperatureObs.get(0);
             return temperatureObservation.getValueNumeric();
+        }
+
+        return null;
+    }
+
     public static Double getPatientBMI(Patient patient) {
         List<Obs> bmiObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
                 null, Collections.singletonList(Context.getConceptService().getConceptByUuid(BMI_UUID)), null,
