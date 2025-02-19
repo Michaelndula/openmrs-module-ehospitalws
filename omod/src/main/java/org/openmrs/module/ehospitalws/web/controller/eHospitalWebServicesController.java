@@ -13,6 +13,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -118,35 +119,35 @@ public class eHospitalWebServicesController {
 		
 		return generatePatientListObj.generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate, filterCategory, allPatientsObj);
 	}
-	
-	@RequestMapping(method = RequestMethod.GET, value = "/consultation")
+
+	@GetMapping(value = "/{type}")
 	@ResponseBody
-	public Object getConsultationOpdPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
-	        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) throws ParseException {
-		
-		return handleOpdPatientsRequest(qStartDate, qEndDate, filterCategory, page, size, Constants::isConsultation);
-	}
-	
-	@RequestMapping(method = RequestMethod.GET, value = "/dental")
-	@ResponseBody
-	public Object getDentalOpdPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
-	        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) throws ParseException {
-		
-		return handleOpdPatientsRequest(qStartDate, qEndDate, filterCategory, page, size, Constants::isDental);
-	}
-	
-	@RequestMapping(method = RequestMethod.GET, value = "/ultrasound")
-	@ResponseBody
-	public Object getUltrasoundOpdPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
-	        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) throws ParseException {
-		
-		return handleOpdPatientsRequest(qStartDate, qEndDate, filterCategory, page, size, Constants::isUltrasound);
+	public Object getOpd(
+			HttpServletRequest request,
+			@RequestParam("startDate") String qStartDate,
+			@RequestParam("endDate") String qEndDate,
+			@RequestParam(required = false, value = "filter") Optional<Constants.filterCategory> filterCategory,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "50") int size,
+			@PathVariable String type) throws ParseException {
+
+		BiFunction<Patient, DateRange, Boolean> encounterTypeFilter;
+
+		switch (type.toLowerCase()) {
+			case "consultation":
+				encounterTypeFilter = Constants::isConsultation;
+				break;
+			case "dental":
+				encounterTypeFilter = Constants::isDental;
+				break;
+			case "ultrasound":
+				encounterTypeFilter = Constants::isUltrasound;
+				break;
+			default:
+				throw new IllegalArgumentException("Invalid OPD type: " + type);
+		}
+
+		return handleOpdPatientsRequest(qStartDate, qEndDate, filterCategory.orElse(null), page, size, (BiPredicate<Patient, DateRange>) encounterTypeFilter);
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/opdVisits")
