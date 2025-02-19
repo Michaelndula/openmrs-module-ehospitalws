@@ -4,7 +4,6 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.Patient;
-import org.openmrs.PersonAddress;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,7 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.util.*;
 
-import static org.openmrs.module.ehospitalws.web.controller.eHospitalWebServicesController.getPatientDiagnosis;
+import static org.openmrs.module.ehospitalws.web.constants.Constants.*;
 
 /**
  * This class configured as controller using annotation and mapped with the URL of
@@ -32,35 +31,36 @@ public class LLMController {
 
     }
 
-    private static ObjectNode generatePatientObject(Date startDate, Date endDate, eHospitalWebServicesController.filterCategory filterCategory,
+    private static ObjectNode generatePatientObject(Date startDate, Date endDate, filterCategory filterCategory,
                                                     Patient patient) {
         ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
         Date birthdate = patient.getBirthdate();
         Date currentDate = new Date();
         long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
 
-
-        String county = "";
-        String subCounty = "";
-        String ward = "";
-        for (PersonAddress address : patient.getAddresses()) {
-            if (address.getCountyDistrict() != null) {
-                county = address.getCountyDistrict();
-            }
-            if (address.getStateProvince() != null) {
-                subCounty = address.getStateProvince();
-            }
-            if (address.getAddress4() != null) {
-                ward = address.getAddress4();
-            }
-        }
-        String fullAddress = "County: " + county + ", Sub County: " + subCounty + ", Ward: " + ward;
-
-        String diagnosis = getPatientDiagnosis(patient, startDate, endDate);
+        String diagnosis = getPatientDiagnosis(patient);
+        Double weight = getPatientWeight(patient);
+        Double height = getPatientHeight(patient);
+        Double bmi = getPatientBMI(patient);
+        Integer systolic_blood_pressure = getPatientSystolicPressure(patient);
+        Integer diastolic_blood_pressure = getPatientDiastolicPressure(patient);
+        String blood_pressure = systolic_blood_pressure + "/" + diastolic_blood_pressure;
+        Integer heart_rate = getPatientHeartRate(patient);
+        Double temperature = getPatientTemperature(patient);
 
         patientObj.put("sex", patient.getGender());
         patientObj.put("age", age);
+        patientObj.put("weight", weight);
+        patientObj.put("height", height);
+        patientObj.put("bmi", bmi);
+        patientObj.put("blood_pressure", blood_pressure);
+        patientObj.put("heart_rate", heart_rate);
+        patientObj.put("temperature", temperature);
         patientObj.put("diagnosis", diagnosis);
+        patientObj.put("tests", tests);
+        patientObj.put("condition", condition);
+        patientObj.put("medication", medication);
+
 
         return patientObj;
     }
@@ -76,7 +76,7 @@ public class LLMController {
      * @return A JSON string representing the summary of patient data.
      */
     public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
-                                         eHospitalWebServicesController.filterCategory filterCategory, ObjectNode allPatientsObj) {
+                                         filterCategory filterCategory, ObjectNode allPatientsObj) {
 
         ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
 
