@@ -2,19 +2,38 @@ package org.openmrs.module.ehospitalws.web.constants;
 
 import org.openmrs.*;
 import org.openmrs.api.context.Context;
+import org.openmrs.module.ehospitalws.web.controller.eHospitalWebServicesController;
 import org.openmrs.parameter.EncounterSearchCriteria;
+import org.springframework.stereotype.Component;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 
 import static org.openmrs.module.ehospitalws.web.constants.SharedConcepts.*;
 
+@Component
 public class Constants {
     public static SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("dd-MM-yyyy");
 
+    public static DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault());
+
     public static final double THRESHOLD = 1000.0;
+
+    public enum filterCategory {
+        CHILDREN_ADOLESCENTS,
+        DIAGNOSIS,
+        ADULTS,
+        CONSULTATION,
+        DENTAL,
+        ULTRASOUND,
+        OPD_VISITS,
+        OPD_REVISITS
+    };
 
     public static Date[] getStartAndEndDate(String qStartDate, String qEndDate, SimpleDateFormat dateTimeFormatter)
             throws ParseException {
@@ -134,40 +153,40 @@ public class Constants {
         return null;
     }
 
-    public static Double getPatientSystolicPressure(Patient patient) {
+    public static Integer getPatientSystolicPressure(Patient patient) {
         List<Obs> systolicPressureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
                 null, Collections.singletonList(Context.getConceptService().getConceptByUuid(SYSTOLIC_BLOOD_PRESSURE_UUID)), null,
                 null, null, null, null, null, null, null, false);
 
         if (!systolicPressureObs.isEmpty()) {
             Obs systolicPressureObservation = systolicPressureObs.get(0);
-            return systolicPressureObservation.getValueNumeric();
+            return systolicPressureObservation.getValueNumeric().intValue();
         }
 
         return null;
     }
 
-    public static Double getPatientDiastolicPressure(Patient patient) {
+    public static Integer getPatientDiastolicPressure(Patient patient) {
         List<Obs> diastolicPressureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
                 null, Collections.singletonList(Context.getConceptService().getConceptByUuid(DIASTOLIC_BLOOD_PRESSURE_UUID)), null,
                 null, null, null, null, null, null, null, false);
 
         if (!diastolicPressureObs.isEmpty()) {
             Obs diastolicPressureObservation = diastolicPressureObs.get(0);
-            return diastolicPressureObservation.getValueNumeric();
+            return diastolicPressureObservation.getValueNumeric().intValue();
         }
         return null;
 
     }
 
-    public static Double getPatientHeartRate(Patient patient) {
+    public static Integer getPatientHeartRate(Patient patient) {
         List<Obs> heartRateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
                 null, Collections.singletonList(Context.getConceptService().getConceptByUuid(PULSE_RATE_UUID)), null,
                 null, null, null, null, null, null, null, false);
 
         if (!heartRateObs.isEmpty()) {
             Obs heartRateObservation = heartRateObs.get(0);
-            return heartRateObservation.getValueNumeric();
+            return heartRateObservation.getValueNumeric().intValue();
         }
 
         return null;
@@ -199,4 +218,94 @@ public class Constants {
         return null;
     }
 
+    public static boolean isOpdVisit(Patient patient, Date startDate, Date endDate) {
+        return Context.getVisitService().getVisitsByPatient(patient).stream()
+                .anyMatch(visit -> visit.getStartDatetime().after(startDate) && visit.getStartDatetime().before(endDate)
+                        && OPD_VISIT_UUID.equals(visit.getVisitType().getUuid()));
+    }
+
+    public static boolean isOpdRevisit(Patient patient, Date startDate, Date endDate) {
+        return Context.getVisitService().getVisitsByPatient(patient).stream()
+                .anyMatch(visit -> visit.getStartDatetime().after(startDate) && visit.getStartDatetime().before(endDate)
+                        && OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid()));
+    }
+
+    public static List<Patient> getOpdPatients(Date startDate, Date endDate) {
+        return Context.getVisitService().getVisits(null, null, null, null, startDate, endDate, null, null, null, true, false)
+                .stream()
+                .filter(visit -> OPD_VISIT_UUID.equals(visit.getVisitType().getUuid())
+                        || OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid()))
+                .map(Visit::getPatient).distinct().collect(Collectors.toList());
+    }
+
+    public static List<Patient> getOpdPatients(Date startDate, Date endDate, BiPredicate<Patient, DateRange> typeFilter) {
+        return Context.getVisitService().getVisits(null, null, null, null, startDate, endDate, null, null, null, true, false)
+                .stream()
+                .filter(visit -> (OPD_VISIT_UUID.equals(visit.getVisitType().getUuid())
+                        || OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid()))
+                        && typeFilter.test(visit.getPatient(), new DateRange(startDate, endDate)))
+                .map(Visit::getPatient).distinct().collect(Collectors.toList());
+    }
+
+    public static int countOpdVisits(Date startDate, Date endDate) {
+        return (int) Context.getVisitService()
+                .getVisits(null, null, null, null, startDate, endDate, null, null, null, true, false).stream()
+                .filter(visit -> OPD_VISIT_UUID.equals(visit.getVisitType().getUuid())).count();
+    }
+
+    public static int countOpdRevisits(Date startDate, Date endDate) {
+        return (int) Context.getVisitService()
+                .getVisits(null, null, null, null, startDate, endDate, null, null, null, true, false).stream()
+                .filter(visit -> OPD_REVISIT_UUID.equals(visit.getVisitType().getUuid())).count();
+    }
+
+    /**
+     * Checks if a patient has any encounter of a specific type within a given date range.
+     *
+     * @param patient The patient to check.
+     * @param encounterTypeUuid The UUID of the encounter type to check for.
+     * @return True if the patient has an encounter of the specified type within the given date range,
+     *         false otherwise.
+     */
+    public static boolean hasEncounterOfType(Patient patient, DateRange dateRange, String encounterTypeUuid) {
+        EncounterType encounterType = Context.getEncounterService().getEncounterTypeByUuid(encounterTypeUuid);
+        List<Encounter> encounters = Context.getEncounterService().getEncountersByPatient(patient);
+
+        return encounters.stream()
+                .anyMatch(encounter -> encounter.getEncounterDatetime().after(dateRange.getStartDate())
+                        && encounter.getEncounterDatetime().before(dateRange.getEndDate())
+                        && encounter.getEncounterType().equals(encounterType));
+    }
+
+    public static boolean isDental(Patient patient, DateRange dateRange) {
+        return hasEncounterOfType(patient, dateRange, DENTAL_ENCOUTERTYPE_UUID);
+    }
+
+    public static boolean isUltrasound(Patient patient, DateRange dateRange) {
+        return hasEncounterOfType(patient, dateRange, ULTRASOUND_ENCOUNTERTYPE_UUID);
+    }
+
+    public static boolean isConsultation(Patient patient, DateRange dateRange) {
+        return hasEncounterOfType(patient, dateRange, CONSULTATION_ENCOUNTERTYPE_UUID);
+    }
+
+    public static class DateRange {
+
+        private final Date startDate;
+
+        private final Date endDate;
+
+        public DateRange(Date startDate, Date endDate) {
+            this.startDate = startDate;
+            this.endDate = endDate;
+        }
+
+        public Date getStartDate() {
+            return startDate;
+        }
+
+        public Date getEndDate() {
+            return endDate;
+        }
+    }
 }
