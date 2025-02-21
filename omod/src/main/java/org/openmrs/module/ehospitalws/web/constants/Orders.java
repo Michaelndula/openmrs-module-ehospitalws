@@ -27,8 +27,7 @@ public class Orders {
 		if (testOrderType == null) {
 			return Collections.emptyList();
 		}
-		
-		// Fetch all orders for the patient and filter based on latest visit
+
 		return Context.getOrderService().getAllOrdersByPatient(patient).stream()
 		        .filter(order -> testOrderType.equals(order.getOrderType()))
 		        .filter(order -> latestVisit.getEncounters().contains(order.getEncounter())).collect(Collectors.toList());
@@ -50,8 +49,7 @@ public class Orders {
 		if (drugOrderType == null) {
 			return Collections.emptyList();
 		}
-		
-		// Fetch all orders and filter only DrugOrders for the latest visit
+
 		return Context.getOrderService().getAllOrdersByPatient(patient).stream().filter(order -> order instanceof DrugOrder)
 		        .map(order -> (DrugOrder) order).filter(drugOrder -> drugOrder.getOrderType().equals(drugOrderType))
 		        .filter(drugOrder -> latestVisit.getEncounters().contains(drugOrder.getEncounter()))
@@ -68,12 +66,30 @@ public class Orders {
 		if (latestVisit == null) {
 			return Collections.emptyList();
 		}
-		
-		// Fetch conditions only for the latest visit
+
 		return Context.getConditionService().getActiveConditions(patient).stream()
 		        .filter(condition -> condition.getEncounter() != null)
 		        .filter(condition -> latestVisit.getEncounters().contains(condition.getEncounter()))
 		        .collect(Collectors.toList());
+	}
+	
+	public static String getTestResult(String patientUuid, String conceptUuid) {
+		List<Obs> observations = Context.getObsService().getObservationsByPersonAndConcept(
+		    Context.getPatientService().getPatientByUuid(patientUuid),
+		    Context.getConceptService().getConceptByUuid(conceptUuid));
+
+		if (!observations.isEmpty()) {
+			Obs latestObs = observations.get(observations.size() - 1);
+			return latestObs.getValueAsString(Context.getLocale());
+		}
+		
+		return null;
+	}
+	
+	public static List<Obs> getTestObservations(String patientUuid, String testConceptUuid) {
+		return Context.getObsService().getObservationsByPersonAndConcept(
+		    Context.getPatientService().getPatientByUuid(patientUuid),
+		    Context.getConceptService().getConceptByUuid(testConceptUuid));
 	}
 	
 	private static Visit getLatestVisit(Patient patient) {

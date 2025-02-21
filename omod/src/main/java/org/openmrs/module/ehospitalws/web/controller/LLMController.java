@@ -1,12 +1,10 @@
 package org.openmrs.module.ehospitalws.web.controller;
 
+import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
-import org.openmrs.Condition;
-import org.openmrs.DrugOrder;
-import org.openmrs.Order;
-import org.openmrs.Patient;
+import org.openmrs.*;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.springframework.http.HttpStatus;
@@ -18,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.text.ParseException;
 import java.util.*;
 
@@ -35,14 +34,18 @@ public class LLMController {
 	@RequestMapping(method = RequestMethod.GET, value = "/patient/encounter")
 	@ResponseBody
 	public Object getAllPatients(HttpServletRequest request, @RequestParam("patientUuid") String patientUuid)
-	        throws ParseException {
+	        throws ParseException, IOException {
 		Patient patient = Context.getPatientService().getPatientByUuid(patientUuid);
 		if (patient == null) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Patient not found");
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"error\": \"Patient not found\"}");
 		}
 		
 		ObjectNode patientData = generatePatientObject(null, null, null, patient);
-		return ResponseEntity.ok(patientData);
+		
+		ObjectMapper mapper = new ObjectMapper();
+		String jsonString = mapper.writeValueAsString(patientData);
+		
+		return ResponseEntity.ok(jsonString);
 	}
 	
 	private static ObjectNode generatePatientObject(Date startDate, Date endDate, filterCategory filterCategory,
@@ -51,32 +54,65 @@ public class LLMController {
 		Date birthdate = patient.getBirthdate();
 		Date currentDate = new Date();
 		long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
-		
+
 		String diagnosis = getPatientDiagnosis(patient);
+		if (diagnosis == null || diagnosis.trim().isEmpty()) {
+			diagnosis = "N/A";
+		}
+		
 		Double weight = getPatientWeight(patient);
 		Double height = getPatientHeight(patient);
 		Double bmi = getPatientBMI(patient);
 		Integer systolic_blood_pressure = getPatientSystolicPressure(patient);
 		Integer diastolic_blood_pressure = getPatientDiastolicPressure(patient);
-		String blood_pressure = systolic_blood_pressure + "/" + diastolic_blood_pressure;
+		String blood_pressure = (systolic_blood_pressure != null && diastolic_blood_pressure != null)
+		        ? systolic_blood_pressure + "/" + diastolic_blood_pressure
+		        : "N/A";
 		Integer heart_rate = getPatientHeartRate(patient);
 		Double temperature = getPatientTemperature(patient);
 		
-		// Get test orders, medications, and conditions
+		patientObj.put("sex", patient.getGender());
+		patientObj.put("age", age);
+		patientObj.put("weight", weight != null ? weight : 0.0);
+		patientObj.put("height", height != null ? height : 0.0);
+		patientObj.put("bmi", bmi != null ? bmi : 0.0);
+		patientObj.put("blood_pressure", blood_pressure);
+		patientObj.put("heart_rate", heart_rate != null ? heart_rate : 0);
+		patientObj.put("temperature", temperature != null ? temperature : 0.0);
+		patientObj.put("diagnosis", diagnosis);
+
 		List<Order> testOrders = getPatientTestOrders(patient.getUuid());
 		List<DrugOrder> medications = getPatientMedications(patient.getUuid());
 		List<Condition> conditions = getPatientConditions(patient.getUuid());
 		
 		ArrayNode testsArray = patientObj.putArray("tests");
+		
 		for (Order testOrder : testOrders) {
-			testsArray.add(testOrder.getConcept().getDisplayString());
+			if (testOrder.getConcept() != null && testOrder.getConcept().getDisplayString() != null) {
+				ObjectNode testObj = JsonNodeFactory.instance.objectNode();
+				testObj.put("test_name", testOrder.getConcept().getDisplayString());
+
+				ArrayNode testResultsArray = testObj.putArray("test_results");
+				
+				List<Obs> testObservations = getTestObservations(patient.getUuid(), testOrder.getConcept().getUuid());
+				
+				for (Obs obs : testObservations) {
+					ObjectNode resultObj = JsonNodeFactory.instance.objectNode();
+					resultObj.put("parameter", obs.getConcept().getName().getName());
+					resultObj.put("value", obs.getValueAsString(Context.getLocale()));
+					
+					testResultsArray.add(resultObj);
+				}
+				
+				testsArray.add(testObj);
+			}
 		}
 		
 		ArrayNode medicationsArray = patientObj.putArray("medication");
 		for (DrugOrder medOrder : medications) {
 			if (medOrder.getDrug() != null) {
 				medicationsArray.add(medOrder.getDrug().getName());
-			} else {
+			} else if (medOrder.getConcept() != null && medOrder.getConcept().getName() != null) {
 				medicationsArray.add(medOrder.getConcept().getName().getName());
 			}
 		}
@@ -92,15 +128,7 @@ public class LLMController {
 			}
 		}
 		
-		patientObj.put("sex", patient.getGender());
-		patientObj.put("age", age);
-		patientObj.put("weight", weight);
-		patientObj.put("height", height);
-		patientObj.put("bmi", bmi);
-		patientObj.put("blood_pressure", blood_pressure);
-		patientObj.put("heart_rate", heart_rate);
-		patientObj.put("temperature", temperature);
-		patientObj.put("diagnosis", diagnosis);
+		System.out.println("Generated JSON: " + patientObj.toString());
 		
 		return patientObj;
 	}
