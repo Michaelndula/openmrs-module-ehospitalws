@@ -54,7 +54,7 @@ public class LLMController {
 		Date birthdate = patient.getBirthdate();
 		Date currentDate = new Date();
 		long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
-
+		
 		String diagnosis = getPatientDiagnosis(patient);
 		if (diagnosis == null || diagnosis.trim().isEmpty()) {
 			diagnosis = "N/A";
@@ -62,7 +62,6 @@ public class LLMController {
 		
 		Double weight = getPatientWeight(patient);
 		Double height = getPatientHeight(patient);
-		Double bmi = getPatientBMI(patient);
 		Integer systolic_blood_pressure = getPatientSystolicPressure(patient);
 		Integer diastolic_blood_pressure = getPatientDiastolicPressure(patient);
 		String blood_pressure = (systolic_blood_pressure != null && diastolic_blood_pressure != null)
@@ -73,39 +72,53 @@ public class LLMController {
 		
 		patientObj.put("sex", patient.getGender());
 		patientObj.put("age", age);
-		patientObj.put("weight", weight != null ? weight : 0.0);
-		patientObj.put("height", height != null ? height : 0.0);
-		patientObj.put("bmi", bmi != null ? bmi : 0.0);
+		patientObj.put("weight", weight);
+		patientObj.put("height", height);
 		patientObj.put("blood_pressure", blood_pressure);
-		patientObj.put("heart_rate", heart_rate != null ? heart_rate : 0);
-		patientObj.put("temperature", temperature != null ? temperature : 0.0);
+		patientObj.put("heart_rate", heart_rate);
+		patientObj.put("temperature", temperature);
 		patientObj.put("diagnosis", diagnosis);
-
+		
 		List<Order> testOrders = getPatientTestOrders(patient.getUuid());
 		List<DrugOrder> medications = getPatientMedications(patient.getUuid());
 		List<Condition> conditions = getPatientConditions(patient.getUuid());
 		
-		ArrayNode testsArray = patientObj.putArray("tests");
+		Map<String, ObjectNode> testMap = new HashMap<>();
 		
 		for (Order testOrder : testOrders) {
 			if (testOrder.getConcept() != null && testOrder.getConcept().getDisplayString() != null) {
-				ObjectNode testObj = JsonNodeFactory.instance.objectNode();
-				testObj.put("test_name", testOrder.getConcept().getDisplayString());
-
-				ArrayNode testResultsArray = testObj.putArray("test_results");
+				String testName = testOrder.getConcept().getDisplayString();
+				
+				testMap.putIfAbsent(testName, JsonNodeFactory.instance.objectNode());
+				ObjectNode testObj = testMap.get(testName);
+				testObj.put("test_name", testName);
+				
+				ArrayNode testResultsArray = (ArrayNode) testObj.get("test_results");
+				if (testResultsArray == null) {
+					testResultsArray = JsonNodeFactory.instance.arrayNode();
+					testObj.put("test_results", testResultsArray);
+				}
 				
 				List<Obs> testObservations = getTestObservations(patient.getUuid(), testOrder.getConcept().getUuid());
 				
+				Set<String> addedParameters = new HashSet<>();
 				for (Obs obs : testObservations) {
-					ObjectNode resultObj = JsonNodeFactory.instance.objectNode();
-					resultObj.put("parameter", obs.getConcept().getName().getName());
-					resultObj.put("value", obs.getValueAsString(Context.getLocale()));
+					String paramName = obs.getConcept().getName().getName();
 					
-					testResultsArray.add(resultObj);
+					if (!addedParameters.contains(paramName)) {
+						ObjectNode resultObj = JsonNodeFactory.instance.objectNode();
+						resultObj.put("parameter", paramName);
+						resultObj.put("value", obs.getValueAsString(Context.getLocale()));
+						testResultsArray.add(resultObj);
+						addedParameters.add(paramName);
+					}
 				}
-				
-				testsArray.add(testObj);
 			}
+		}
+		
+		ArrayNode testsArray = patientObj.putArray("tests");
+		for (ObjectNode testObj : testMap.values()) {
+			testsArray.add(testObj);
 		}
 		
 		ArrayNode medicationsArray = patientObj.putArray("medication");
@@ -128,49 +141,6 @@ public class LLMController {
 			}
 		}
 		
-		System.out.println("Generated JSON: " + patientObj.toString());
-		
 		return patientObj;
-	}
-	
-	/**
-	 * Generates a summary of patient data within a specified date range, grouped by year, month, and
-	 * week.
-	 * 
-	 * @param allPatients A set of all patients to be considered for the summary.
-	 * @param startDate The start date of the range for which to generate the summary.
-	 * @param endDate The end date of the range for which to generate the summary.
-	 * @param filterCategory The category to filter patients.
-	 * @return A JSON string representing the summary of patient data.
-	 */
-	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
-	        filterCategory filterCategory, ObjectNode allPatientsObj) {
-		
-		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
-		
-		List<Date> patientDates = new ArrayList<>();
-		Calendar startCal = Calendar.getInstance();
-		startCal.setTime(startDate);
-		Calendar endCal = Calendar.getInstance();
-		endCal.setTime(endDate);
-		
-		for (Patient patient : allPatients) {
-			ObjectNode patientObj = generatePatientObject(startDate, endDate, filterCategory, patient);
-			if (patientObj != null) {
-				patientList.add(patientObj);
-				
-				Calendar patientCal = Calendar.getInstance();
-				patientCal.setTime(patient.getDateCreated());
-				
-				if (!patientCal.before(startCal) && !patientCal.after(endCal)) {
-					patientDates.add(patient.getDateCreated());
-				}
-			}
-		}
-		
-		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
-		allPatientsObj.put("summary", groupingObj);
-		
-		return allPatientsObj.toString();
 	}
 }
