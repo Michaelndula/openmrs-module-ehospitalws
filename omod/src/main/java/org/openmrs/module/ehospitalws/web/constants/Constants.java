@@ -14,6 +14,7 @@ import java.util.*;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 
+import static org.openmrs.module.ehospitalws.web.constants.Orders.getLatestVisit;
 import static org.openmrs.module.ehospitalws.web.constants.SharedConcepts.*;
 
 @Component
@@ -35,6 +36,10 @@ public class Constants {
 		OPD_VISITS,
 		OPD_REVISITS
 	};
+	
+	private static final List<String> DIAGNOSIS_CONCEPT_UUIDS = Arrays.asList(IMPRESSION_DIAGNOSIS_CONCEPT_UUID,
+	    OTHER_DIAGNOSIS, OTHER_MENINGITIS, OTHER_BITES, OTHER_RESPIRATORY_DISEASE, OTHER_INJURIES,
+	    OTHER_CONVULSIVE_DISORDER);
 	
 	public static Date[] getStartAndEndDate(String qStartDate, String qEndDate, SimpleDateFormat dateTimeFormatter)
 	        throws ParseException {
@@ -126,56 +131,38 @@ public class Constants {
 		return null;
 	}
 	
-	public static String getPatientDiagnosis(Patient patient) {
-		
-		List<Concept> diagnosisConcepts = new ArrayList<>();
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(IMPRESSION_DIAGNOSIS_CONCEPT_UUID));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_DIAGNOSIS));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_MENINGITIS));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_BITES));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_RESPIRATORY_DISEASE));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_INJURIES));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_CONVULSIVE_DISORDER));
-		
-		List<Obs> diagnosisObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-		    null, diagnosisConcepts, null, null, null, null, null, null, null, null, false);
-		
-		if (!diagnosisObs.isEmpty()) {
-			Obs diagnosisObservation = diagnosisObs.get(0);
-			if (diagnosisObservation.getValueCoded() != null) {
-				return diagnosisObservation.getValueCoded().getName().getName();
-			} else if (diagnosisObservation.getValueText() != null) {
-				return diagnosisObservation.getValueText();
-			}
-		}
-		
-		return null;
+	public static List<String> getLatestVisitDiagnoses(Patient patient) {
+		Visit latestVisit = getLatestVisit(patient);
+		return latestVisit != null ? getDiagnosesForVisit(patient, latestVisit) : Collections.emptyList();
 	}
 	
-	public static String getDiagnosis(Date startDate, Date endDate, Patient patient) {
+	public static List<String> getDiagnosesWithinPeriod(Patient patient, Date startDate, Date endDate) {
+		Visit latestVisit = getLatestVisit(patient);
 		
-		List<Concept> diagnosisConcepts = new ArrayList<>();
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(IMPRESSION_DIAGNOSIS_CONCEPT_UUID));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_DIAGNOSIS));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_MENINGITIS));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_BITES));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_RESPIRATORY_DISEASE));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_INJURIES));
-		diagnosisConcepts.add(Context.getConceptService().getConceptByUuid(OTHER_CONVULSIVE_DISORDER));
-		
-		List<Obs> diagnosisObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-		    null, diagnosisConcepts, null, null, null, null, null, null, startDate, endDate, false);
-		
-		if (!diagnosisObs.isEmpty()) {
-			Obs diagnosisObservation = diagnosisObs.get(0);
-			if (diagnosisObservation.getValueCoded() != null) {
-				return diagnosisObservation.getValueCoded().getName().getName();
-			} else if (diagnosisObservation.getValueText() != null) {
-				return diagnosisObservation.getValueText();
-			}
+		// If no visit found within the range, return empty
+		if (latestVisit == null || (startDate != null && latestVisit.getStartDatetime().before(startDate))
+		        || (endDate != null && latestVisit.getStartDatetime().after(endDate))) {
+			return Collections.emptyList();
 		}
 		
-		return null;
+		return getDiagnosesForVisit(patient, latestVisit);
+	}
+	
+	private static List<String> getDiagnosesForVisit(Patient patient, Visit visit) {
+		List<Concept> diagnosisConcepts = getDiagnosisConcepts();
+		
+		List<Obs> diagnosisObs = new ArrayList<>(
+		        Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		            diagnosisConcepts, null, null, null, null, null, null, null, null, false));
+		
+		return diagnosisObs.stream()
+		        .map(obs -> obs.getValueCoded() != null ? obs.getValueCoded().getName().getName() : obs.getValueText())
+		        .filter(Objects::nonNull).distinct().collect(Collectors.toList());
+	}
+	
+	private static List<Concept> getDiagnosisConcepts() {
+		return DIAGNOSIS_CONCEPT_UUIDS.stream().map(uuid -> Context.getConceptService().getConceptByUuid(uuid))
+		        .collect(Collectors.toList());
 	}
 	
 	public static Integer getPatientSystolicPressure(Patient patient) {

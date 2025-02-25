@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.text.ParseException;
 import java.util.*;
 
@@ -40,7 +41,7 @@ public class LLMController {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"error\": \"Patient not found\"}");
 		}
 		
-		ObjectNode patientData = generatePatientObject(null, null, null, patient);
+		ObjectNode patientData = generatePatientObject(patient);
 		
 		ObjectMapper mapper = new ObjectMapper();
 		String jsonString = mapper.writeValueAsString(patientData);
@@ -48,18 +49,13 @@ public class LLMController {
 		return ResponseEntity.ok(jsonString);
 	}
 	
-	private static ObjectNode generatePatientObject(Date startDate, Date endDate, filterCategory filterCategory,
-	        Patient patient) {
+	private static ObjectNode generatePatientObject(Patient patient) {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
 		Date birthdate = patient.getBirthdate();
 		Date currentDate = new Date();
 		long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
 		
-		String diagnosis = getPatientDiagnosis(patient);
-		if (diagnosis == null || diagnosis.trim().isEmpty()) {
-			diagnosis = "N/A";
-		}
-		
+		List<String> diagnoses = getLatestVisitDiagnoses(patient);
 		Double weight = getPatientWeight(patient);
 		Double height = getPatientHeight(patient);
 		Integer systolic_blood_pressure = getPatientSystolicPressure(patient);
@@ -70,14 +66,14 @@ public class LLMController {
 		Integer heart_rate = getPatientHeartRate(patient);
 		Double temperature = getPatientTemperature(patient);
 		
-		patientObj.put("sex", patient.getGender());
+		patientObj.put("gender", patient.getGender());
 		patientObj.put("age", age);
 		patientObj.put("weight", weight);
 		patientObj.put("height", height);
 		patientObj.put("blood_pressure", blood_pressure);
 		patientObj.put("heart_rate", heart_rate);
 		patientObj.put("temperature", temperature);
-		patientObj.put("diagnosis", diagnosis);
+		patientObj.put("diagnosis", diagnoses.toString());
 		
 		List<Order> testOrders = getPatientTestOrders(patient.getUuid());
 		List<DrugOrder> medications = getPatientMedications(patient.getUuid());
@@ -91,12 +87,12 @@ public class LLMController {
 				
 				testMap.putIfAbsent(testName, JsonNodeFactory.instance.objectNode());
 				ObjectNode testObj = testMap.get(testName);
-				testObj.put("test_name", testName);
+				testObj.put("name", testName);
 				
-				ArrayNode testResultsArray = (ArrayNode) testObj.get("test_results");
+				ArrayNode testResultsArray = (ArrayNode) testObj.get("results");
 				if (testResultsArray == null) {
 					testResultsArray = JsonNodeFactory.instance.arrayNode();
-					testObj.put("test_results", testResultsArray);
+					testObj.put("results", testResultsArray);
 				}
 				
 				List<Obs> testObservations = getTestObservations(patient.getUuid(), testOrder.getConcept().getUuid());
@@ -121,7 +117,7 @@ public class LLMController {
 			testsArray.add(testObj);
 		}
 		
-		ArrayNode medicationsArray = patientObj.putArray("medication");
+		ArrayNode medicationsArray = patientObj.putArray("medications");
 		for (DrugOrder medOrder : medications) {
 			if (medOrder.getDrug() != null) {
 				medicationsArray.add(medOrder.getDrug().getName());
@@ -130,7 +126,7 @@ public class LLMController {
 			}
 		}
 		
-		ArrayNode conditionsArray = patientObj.putArray("condition");
+		ArrayNode conditionsArray = patientObj.putArray("conditions");
 		for (Condition condition : conditions) {
 			if (condition.getCondition() != null) {
 				if (condition.getCondition().getCoded() != null) {
