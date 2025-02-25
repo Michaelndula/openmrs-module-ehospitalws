@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.text.ParseException;
 import java.util.*;
 
@@ -51,56 +50,54 @@ public class LLMController {
 	
 	private static ObjectNode generatePatientObject(Patient patient) {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
+		
+		// Calculate age
 		Date birthdate = patient.getBirthdate();
-		Date currentDate = new Date();
-		long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
+		if (birthdate != null) {
+			long age = (new Date().getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
+			patientObj.put("age", age);
+		}
 		
+		// Gender
+		Optional.ofNullable(patient.getGender()).ifPresent(gender -> patientObj.put("gender", gender));
+		
+		// Retrieve patient vitals
+		Optional.ofNullable(getPatientWeight(patient)).ifPresent(weight -> patientObj.put("weight", weight));
+		Optional.ofNullable(getPatientHeight(patient)).ifPresent(height -> patientObj.put("height", height));
+		Optional.ofNullable(getPatientHeartRate(patient)).ifPresent(heartRate -> patientObj.put("heart_rate", heartRate));
+		Optional.ofNullable(getPatientTemperature(patient)).ifPresent(temp -> patientObj.put("temperature", temp));
+		
+		// Blood pressure
+		Integer systolic = getPatientSystolicPressure(patient);
+		Integer diastolic = getPatientDiastolicPressure(patient);
+		if (systolic != null && diastolic != null) {
+			patientObj.put("blood_pressure", systolic + "/" + diastolic);
+		}
+		
+		// Diagnosis (latest visit)
 		List<String> diagnoses = getLatestVisitDiagnoses(patient);
-		Double weight = getPatientWeight(patient);
-		Double height = getPatientHeight(patient);
-		Integer systolic_blood_pressure = getPatientSystolicPressure(patient);
-		Integer diastolic_blood_pressure = getPatientDiastolicPressure(patient);
-		String blood_pressure = (systolic_blood_pressure != null && diastolic_blood_pressure != null)
-		        ? systolic_blood_pressure + "/" + diastolic_blood_pressure
-		        : "N/A";
-		Integer heart_rate = getPatientHeartRate(patient);
-		Double temperature = getPatientTemperature(patient);
+		if (!diagnoses.isEmpty()) {
+			patientObj.put("diagnosis", diagnoses.toString());
+		}
 		
-		patientObj.put("gender", patient.getGender());
-		patientObj.put("age", age);
-		patientObj.put("weight", weight);
-		patientObj.put("height", height);
-		patientObj.put("blood_pressure", blood_pressure);
-		patientObj.put("heart_rate", heart_rate);
-		patientObj.put("temperature", temperature);
-		patientObj.put("diagnosis", diagnoses.toString());
-		
+		// Retrieve and populate test orders
 		List<Order> testOrders = getPatientTestOrders(patient.getUuid());
-		List<DrugOrder> medications = getPatientMedications(patient.getUuid());
-		List<Condition> conditions = getPatientConditions(patient.getUuid());
-		
 		Map<String, ObjectNode> testMap = new HashMap<>();
 		
 		for (Order testOrder : testOrders) {
-			if (testOrder.getConcept() != null && testOrder.getConcept().getDisplayString() != null) {
+			if (testOrder.getConcept() != null) {
 				String testName = testOrder.getConcept().getDisplayString();
-				
 				testMap.putIfAbsent(testName, JsonNodeFactory.instance.objectNode());
 				ObjectNode testObj = testMap.get(testName);
 				testObj.put("name", testName);
 				
-				ArrayNode testResultsArray = (ArrayNode) testObj.get("results");
-				if (testResultsArray == null) {
-					testResultsArray = JsonNodeFactory.instance.arrayNode();
-					testObj.put("results", testResultsArray);
-				}
-				
+				// Retrieve test results
 				List<Obs> testObservations = getTestObservations(patient.getUuid(), testOrder.getConcept().getUuid());
+				ArrayNode testResultsArray = testObj.putArray("results");
 				
 				Set<String> addedParameters = new HashSet<>();
 				for (Obs obs : testObservations) {
 					String paramName = obs.getConcept().getName().getName();
-					
 					if (!addedParameters.contains(paramName)) {
 						ObjectNode resultObj = JsonNodeFactory.instance.objectNode();
 						resultObj.put("parameter", paramName);
@@ -112,27 +109,36 @@ public class LLMController {
 			}
 		}
 		
-		ArrayNode testsArray = patientObj.putArray("tests");
-		for (ObjectNode testObj : testMap.values()) {
-			testsArray.add(testObj);
+		// Add tests to patient JSON
+		if (!testMap.isEmpty()) {
+			ArrayNode testsArray = patientObj.putArray("tests");
+			testMap.values().forEach(testsArray::add);
 		}
 		
-		ArrayNode medicationsArray = patientObj.putArray("medications");
-		for (DrugOrder medOrder : medications) {
-			if (medOrder.getDrug() != null) {
-				medicationsArray.add(medOrder.getDrug().getName());
-			} else if (medOrder.getConcept() != null && medOrder.getConcept().getName() != null) {
-				medicationsArray.add(medOrder.getConcept().getName().getName());
+		// Retrieve and populate medications
+		List<DrugOrder> medications = getPatientMedications(patient.getUuid());
+		if (!medications.isEmpty()) {
+			ArrayNode medicationsArray = patientObj.putArray("medications");
+			for (DrugOrder medOrder : medications) {
+				if (medOrder.getDrug() != null) {
+					medicationsArray.add(medOrder.getDrug().getName());
+				} else if (medOrder.getConcept() != null && medOrder.getConcept().getName() != null) {
+					medicationsArray.add(medOrder.getConcept().getName().getName());
+				}
 			}
 		}
 		
-		ArrayNode conditionsArray = patientObj.putArray("conditions");
-		for (Condition condition : conditions) {
-			if (condition.getCondition() != null) {
-				if (condition.getCondition().getCoded() != null) {
-					conditionsArray.add(condition.getCondition().getCoded().getName().getName());
-				} else if (condition.getCondition().getNonCoded() != null) {
-					conditionsArray.add(condition.getCondition().getNonCoded());
+		// Retrieve and populate conditions
+		List<Condition> conditions = getPatientConditions(patient.getUuid());
+		if (!conditions.isEmpty()) {
+			ArrayNode conditionsArray = patientObj.putArray("conditions");
+			for (Condition condition : conditions) {
+				if (condition.getCondition() != null) {
+					if (condition.getCondition().getCoded() != null) {
+						conditionsArray.add(condition.getCondition().getCoded().getName().getName());
+					} else if (condition.getCondition().getNonCoded() != null) {
+						conditionsArray.add(condition.getCondition().getNonCoded());
+					}
 				}
 			}
 		}
