@@ -9,8 +9,10 @@ import org.openmrs.PersonAddress;
 import org.openmrs.module.ehospitalws.web.controller.eHospitalWebServicesController;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.List;
 
 import static org.openmrs.module.ehospitalws.web.constants.Constants.*;
 
@@ -26,7 +28,6 @@ public class GeneratePatientObject {
 		String alternateContact = patient.getAttribute("Contact Number") != null
 		        ? String.valueOf(patient.getAttribute("Contact Number"))
 		        : "";
-		// Calculate age in years based on patient's birthdate and current date
 		Date birthdate = patient.getBirthdate();
 		Date currentDate = new Date();
 		long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
@@ -55,7 +56,7 @@ public class GeneratePatientObject {
 		}
 		String fullAddress = "County: " + county + ", Sub County: " + subCounty + ", Ward: " + ward;
 		
-		String diagnosis = getDiagnosis(startDate, endDate, patient);
+		List<String> diagnoses = getDiagnosesWithinPeriod(patient, startDate, endDate);
 		
 		patientObj.put("uuid", patient.getUuid());
 		patientObj.put("name", patient.getPersonName() != null ? patient.getPersonName().toString() : "");
@@ -69,7 +70,7 @@ public class GeneratePatientObject {
 		patientObj.put("dateRegistered", dateTimeFormatter.format(patient.getPersonDateCreated()));
 		patientObj.put("timeRegistered",
 		    timeFormatter.format(patient.getPersonDateCreated().toInstant().atZone(ZoneId.systemDefault())));
-		patientObj.put("diagnosis", diagnosis);
+		patientObj.put("diagnosis", diagnoses.toString());
 		patientObj.put("OPD Visits", isOpdVisit(patient, startDate, endDate));
 		patientObj.put("OPD Revisit", isOpdRevisit(patient, startDate, endDate));
 		
@@ -77,7 +78,7 @@ public class GeneratePatientObject {
 		if (filterCategory != null) {
 			switch (filterCategory) {
 				case DIAGNOSIS:
-					if (diagnosis != null && diagnosis.toLowerCase().contains(filterCategory.toString())) {
+					if (diagnoses != null && diagnoses.contains(filterCategory.toString())) {
 						return patientObj;
 					}
 					break;

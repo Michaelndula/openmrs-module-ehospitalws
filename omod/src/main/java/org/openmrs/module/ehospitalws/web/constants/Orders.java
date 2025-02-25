@@ -92,7 +92,7 @@ public class Orders {
 		    Context.getConceptService().getConceptByUuid(testConceptUuid));
 	}
 	
-	private static Visit getLatestVisit(Patient patient) {
+	public static Visit getLatestVisit(Patient patient) {
 		List<Visit> visits = Context.getVisitService().getVisitsByPatient(patient);
 		return visits.stream().max((v1, v2) -> v1.getStartDatetime().compareTo(v2.getStartDatetime())).orElse(null);
 	}
