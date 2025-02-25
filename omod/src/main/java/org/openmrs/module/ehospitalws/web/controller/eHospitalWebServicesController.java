@@ -43,12 +43,12 @@ import static org.openmrs.module.ehospitalws.web.constants.SharedConcepts.*;
 @Controller
 @RequestMapping(value = "/rest/" + RestConstants.VERSION_1 + "/ehospital")
 public class eHospitalWebServicesController {
-
+	
 	private final GeneratePatientListObj generatePatientListObj;
-
-    public eHospitalWebServicesController(GeneratePatientListObj generatePatientListObj) {
-        this.generatePatientListObj = generatePatientListObj;
-    }
+	
+	public eHospitalWebServicesController(GeneratePatientListObj generatePatientListObj) {
+		this.generatePatientListObj = generatePatientListObj;
+	}
 	
 	/** Logger for this class and subclasses */
 	protected final Log log = LogFactory.getLog(getClass());
@@ -81,9 +81,9 @@ public class eHospitalWebServicesController {
 		// Paginate the filtered list
 		List<Patient> paginatedPatients = filteredPatients.subList(startIndex, endIndex);
 		
-		return generatePatientListObj.generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate, filterCategory);
+		return generatePatientListObj.generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate,
+		    filterCategory);
 	}
-
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/outPatientClients")
 	@ResponseBody
@@ -117,22 +117,20 @@ public class eHospitalWebServicesController {
 		allPatientsObj.put("totalOpdVisits", totalOpdVisits);
 		allPatientsObj.put("totalOpdRevisits", totalOpdRevisits);
 		
-		return generatePatientListObj.generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate, filterCategory, allPatientsObj);
+		return generatePatientListObj.generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate,
+		    filterCategory, allPatientsObj);
 	}
-
+	
 	@GetMapping(value = "/{type}")
 	@ResponseBody
-	public Object getOpd(
-			HttpServletRequest request,
-			@RequestParam("startDate") String qStartDate,
-			@RequestParam("endDate") String qEndDate,
-			@RequestParam(required = false, value = "filter") Optional<Constants.filterCategory> filterCategory,
-			@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "50") int size,
-			@PathVariable String type) throws ParseException {
-
+	public Object getOpd(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") Optional<Constants.filterCategory> filterCategory,
+	        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size,
+	        @PathVariable String type) throws ParseException {
+		
 		BiFunction<Patient, DateRange, Boolean> encounterTypeFilter;
-
+		
 		switch (type.toLowerCase()) {
 			case "consultation":
 				encounterTypeFilter = Constants::isConsultation;
@@ -146,8 +144,9 @@ public class eHospitalWebServicesController {
 			default:
 				throw new IllegalArgumentException("Invalid OPD type: " + type);
 		}
-
-		return handleOpdPatientsRequest(qStartDate, qEndDate, filterCategory.orElse(null), page, size, (BiPredicate<Patient, DateRange>) encounterTypeFilter);
+		
+		return handleOpdPatientsRequest(qStartDate, qEndDate, filterCategory.orElse(null), page, size,
+		    (BiPredicate<Patient, DateRange>) encounterTypeFilter);
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/opdVisits")
@@ -177,8 +176,8 @@ public class eHospitalWebServicesController {
 		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
-		return generatePatientListObj.generatePatientListObj(new HashSet<>(outpatientVisitsClients), startDate, endDate, filterCategory,
-		    allPatientsObj);
+		return generatePatientListObj.generatePatientListObj(new HashSet<>(outpatientVisitsClients), startDate, endDate,
+		    filterCategory, allPatientsObj);
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/opdRevisits")
@@ -208,8 +207,8 @@ public class eHospitalWebServicesController {
 		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
-		return generatePatientListObj.generatePatientListObj(new HashSet<>(outpatientRevisitsClients), startDate, endDate, filterCategory,
-		    allPatientsObj);
+		return generatePatientListObj.generatePatientListObj(new HashSet<>(outpatientRevisitsClients), startDate, endDate,
+		    filterCategory, allPatientsObj);
 	}
 	
 	private Object handleOpdPatientsRequest(String qStartDate, String qEndDate, filterCategory filterCategory, int page,
@@ -235,6 +234,7 @@ public class eHospitalWebServicesController {
 		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
-		return generatePatientListObj.generatePatientListObj(new HashSet<>(outpatientClients), startDate, endDate, filterCategory, allPatientsObj);
+		return generatePatientListObj.generatePatientListObj(new HashSet<>(outpatientClients), startDate, endDate,
+		    filterCategory, allPatientsObj);
 	}
 }
