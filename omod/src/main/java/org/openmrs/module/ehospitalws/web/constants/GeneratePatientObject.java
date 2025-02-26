@@ -56,7 +56,7 @@ public class GeneratePatientObject {
 		}
 		String fullAddress = "County: " + county + ", Sub County: " + subCounty + ", Ward: " + ward;
 		
-		List<String> diagnoses = getDiagnosesWithinPeriod(patient, startDate, endDate);
+		String diagnoses = getDiagnosesWithinPeriod(patient, startDate, endDate);
 		
 		patientObj.put("uuid", patient.getUuid());
 		patientObj.put("name", patient.getPersonName() != null ? patient.getPersonName().toString() : "");
@@ -70,7 +70,7 @@ public class GeneratePatientObject {
 		patientObj.put("dateRegistered", dateTimeFormatter.format(patient.getPersonDateCreated()));
 		patientObj.put("timeRegistered",
 		    timeFormatter.format(patient.getPersonDateCreated().toInstant().atZone(ZoneId.systemDefault())));
-		patientObj.put("diagnosis", diagnoses.toString());
+		patientObj.put("diagnosis", diagnoses);
 		patientObj.put("OPD Visits", isOpdVisit(patient, startDate, endDate));
 		patientObj.put("OPD Revisit", isOpdRevisit(patient, startDate, endDate));
 		

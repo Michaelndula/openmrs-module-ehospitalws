@@ -136,16 +136,17 @@ public class Constants {
 		return latestVisit != null ? getDiagnosesForVisit(patient, latestVisit) : Collections.emptyList();
 	}
 	
-	public static List<String> getDiagnosesWithinPeriod(Patient patient, Date startDate, Date endDate) {
+	public static String getDiagnosesWithinPeriod(Patient patient, Date startDate, Date endDate) {
 		Visit latestVisit = getLatestVisit(patient);
 		
-		// If no visit found within the range, return empty
+		// If no visit found within the range, return n/a
 		if (latestVisit == null || (startDate != null && latestVisit.getStartDatetime().before(startDate))
 		        || (endDate != null && latestVisit.getStartDatetime().after(endDate))) {
-			return Collections.emptyList();
+			return "N/A";
 		}
 		
-		return getDiagnosesForVisit(patient, latestVisit);
+		List<String> diagnoses = getDiagnosesForVisit(patient, latestVisit);
+		return diagnoses.isEmpty() ? "N/A" : String.join(", ", diagnoses);
 	}
 	
 	private static List<String> getDiagnosesForVisit(Patient patient, Visit visit) {
