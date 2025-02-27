@@ -43,4 +43,6 @@ public class SharedConcepts {
 	public static final String OPD_VISIT_UUID = "287463d3-2233-4c69-9851-5841a1f5e109";
 	
 	public static final String OPD_REVISIT_UUID = "68391cec-08be-454d-8182-ff4e567de66d";
+	
+	public static final String PHONE_NUMBER_UUID = "14d4f066-15f5-102d-96e4-000c29c2a5d7";
 }
