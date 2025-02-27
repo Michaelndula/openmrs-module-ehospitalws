@@ -15,10 +15,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.sql.Date;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Map;
+
+import static org.openmrs.module.ehospitalws.web.constants.SharedConcepts.PHONE_NUMBER_UUID;
 
 @RestController
 @RequestMapping("/rest/" + RestConstants.VERSION_1 + "/ehospital")
@@ -114,8 +114,7 @@ public class SmsController {
 		}
 		
 		// Get the phone number from the person attributes
-		PersonAttributeType phoneAttributeType = personService
-		        .getPersonAttributeTypeByUuid("14d4f066-15f5-102d-96e4-000c29c2a5d7");
+		PersonAttributeType phoneAttributeType = personService.getPersonAttributeTypeByUuid(PHONE_NUMBER_UUID);
 		if (phoneAttributeType == null) {
 			throw new IllegalArgumentException("Phone attribute type not found.");
 		}
