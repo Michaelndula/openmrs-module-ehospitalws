@@ -28,5 +28,40 @@
             <column name="sent_timestamp" type="timestamp"/>
         </createTable>
     </changeSet>
+    <changeSet id="ehospitalws-llm-2025-02-28" author="mndula">
+        <createTable tableName="llm_messages">
+            <column name="id" type="int" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="patient_uuid" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="phone_number" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="edited" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason_edited" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="regenerated" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason_regenerated" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="varchar(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp"/>
+            <column name="sent_at" type="timestamp">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+    </changeSet>
  
 </databaseChangeLog>
