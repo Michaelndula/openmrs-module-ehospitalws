@@ -1,19 +1,24 @@
 package org.openmrs.module.ehospitalws.web.controller;
 
 import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
 import org.openmrs.api.context.Context;
+import org.openmrs.module.ehospitalws.model.LLMMessages;
+import org.openmrs.module.ehospitalws.service.LLMMessagesService;
 import org.openmrs.module.webservices.rest.web.RestConstants;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.text.ParseException;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.*;
 
 import static org.openmrs.module.ehospitalws.web.constants.Constants.*;
@@ -26,6 +31,9 @@ import static org.openmrs.module.ehospitalws.web.constants.Orders.*;
 @Controller
 @RequestMapping(value = "/rest/" + RestConstants.VERSION_1 + "/ehospital")
 public class LLMController {
+	
+	@Autowired
+	private LLMMessagesService llmMessagesService;
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/patient/encounter")
 	@ResponseBody
@@ -56,5 +64,25 @@ public class LLMController {
 		populateConditions(patient, patientObj);
 		
 		return patientObj;
+	}
+	
+	@PostMapping("/message/save")
+	public ResponseEntity<String> saveLLMMessage(@RequestBody LLMMessages message, HttpServletRequest request) {
+		if (!Context.isAuthenticated()) {
+			return ResponseEntity.status(401).body("Unauthorized");
+		}
+		
+		LLMMessages savedMessage = llmMessagesService.saveMessage(message);
+		return ResponseEntity.ok("Message saved successfully with ID: " + savedMessage.getId());
+	}
+	
+	@GetMapping("/messages/patient")
+	public ResponseEntity<List<LLMMessages>> getMessagesByPatient(@RequestParam("patientUuid") String patientUuid) {
+		if (!Context.isAuthenticated()) {
+			return ResponseEntity.status(401).body(null);
+		}
+		
+		List<LLMMessages> messages = llmMessagesService.getMessagesByPatientUuid(patientUuid);
+		return ResponseEntity.ok(messages);
 	}
 }
