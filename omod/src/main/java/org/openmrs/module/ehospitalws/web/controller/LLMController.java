@@ -34,10 +34,6 @@ import static org.openmrs.module.ehospitalws.web.constants.Constants.*;
 @RequestMapping(value = "/rest/" + RestConstants.VERSION_1 + "/ehospital")
 public class LLMController {
 	
-	SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-	
-	SimpleDateFormat inputDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-	
 	private final SmsService smsService;
 	
 	private final Constants constants;
