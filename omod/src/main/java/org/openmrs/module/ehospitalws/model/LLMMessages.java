@@ -46,4 +46,7 @@ public class LLMMessages {
 	
 	@Column(name = "sent_at", updatable = false)
 	private Timestamp sentTimestamp;
+	
+	@Column(name = "success_or_error_message", columnDefinition = "TEXT")
+	private String successOrErrorMessage;
 }

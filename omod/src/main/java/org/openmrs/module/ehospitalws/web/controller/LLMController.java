@@ -9,6 +9,7 @@ import org.openmrs.api.context.Context;
 import org.openmrs.module.ehospitalws.model.LLMMessages;
 import org.openmrs.module.ehospitalws.service.LLMMessagesService;
 import org.openmrs.module.ehospitalws.service.SmsService;
+import org.openmrs.module.ehospitalws.web.constants.Constants;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
@@ -19,13 +20,9 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.text.ParseException;
-import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.*;
 
 import static org.openmrs.module.ehospitalws.web.constants.Constants.*;
-import static org.openmrs.module.ehospitalws.web.constants.Orders.*;
-import static org.openmrs.module.ehospitalws.web.constants.SharedConcepts.PHONE_NUMBER_UUID;
 
 /**
  * This class configured as controller using annotation and mapped with the URL of
@@ -37,14 +34,17 @@ public class LLMController {
 	
 	private final SmsService smsService;
 	
+	private final Constants constants;
+	
 	@Autowired
 	private LLMMessagesService llmMessagesService;
 	
 	@Autowired
 	private PersonService personService;
 	
-	public LLMController(SmsService smsService) {
+	public LLMController(SmsService smsService, Constants constants) {
 		this.smsService = smsService;
+		this.constants = constants;
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/patient/encounter")
@@ -85,7 +85,7 @@ public class LLMController {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
 		}
 		
-		String phoneNumber = getPatientPhoneNumber(patientUuid);
+		String phoneNumber = constants.getPatientPhoneNumber(patientUuid);
 		
 		if (phoneNumber == null || phoneNumber.isEmpty()) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Phone number not found for the patient.");
@@ -127,29 +127,50 @@ public class LLMController {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Phone number not available.");
 		}
 		
-		boolean smsSent = smsService.sendSms(phoneNumber, messageText);
+		boolean smsSent;
+		String responseMessage = null;
+		
+		try {
+			smsSent = smsService.sendSms(phoneNumber, messageText);
+			responseMessage = smsSent ? "Message sent successfully to " + phoneNumber : "Failed to send message";
+		}
+		catch (Exception e) {
+			smsSent = false;
+			responseMessage = "Failed to send message: " + e.getMessage();
+		}
+		
+		String status = smsSent ? "SENT" : "FAILED";
+		Timestamp sentAt = smsSent ? new Timestamp(System.currentTimeMillis()) : null;
+		llmMessagesService.updateMessageStatus(message.getId(), status, sentAt, responseMessage);
 		
 		if (smsSent) {
-			llmMessagesService.updateMessageStatus(message.getId(), "SENT", new Timestamp(System.currentTimeMillis()));
-			return ResponseEntity.ok("Message sent successfully.");
+			return ResponseEntity.ok(responseMessage);
 		} else {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to send message.");
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseMessage);
 		}
 	}
 	
-	private String getPatientPhoneNumber(String patientUuid) {
-		Person person = personService.getPersonByUuid(patientUuid);
-		
-		if (person == null) {
-			return null;
+	@GetMapping("/messages/all")
+	public ResponseEntity<List<Map<String, Object>>> getAllMessages() {
+		if (!Context.isAuthenticated()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
 		}
 		
-		PersonAttributeType phoneAttributeType = personService.getPersonAttributeTypeByUuid(PHONE_NUMBER_UUID);
-		if (phoneAttributeType == null) {
-			return null;
+		List<LLMMessages> messages = llmMessagesService.getAllMessages();
+		List<Map<String, Object>> responseList = new ArrayList<>();
+		
+		for (LLMMessages message : messages) {
+			Map<String, Object> messageData = new HashMap<>();
+			messageData.put("patientUuid", message.getPatientUuid());
+			messageData.put("patientName", constants.getPatientName(message.getPatientUuid()));
+			messageData.put("message", message.getMessage());
+			messageData.put("sentAt", message.getSentTimestamp());
+			messageData.put("status", message.getStatus());
+			messageData.put("SuccessOrErrorMessage", message.getSuccessOrErrorMessage());
+			
+			responseList.add(messageData);
 		}
 		
-		PersonAttribute phoneAttribute = person.getAttribute(phoneAttributeType);
-		return (phoneAttribute != null) ? phoneAttribute.getValue() : null;
+		return ResponseEntity.ok(responseList);
 	}
 }
