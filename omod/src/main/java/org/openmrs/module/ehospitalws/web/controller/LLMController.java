@@ -9,6 +9,7 @@ import org.openmrs.api.context.Context;
 import org.openmrs.module.ehospitalws.model.LLMMessages;
 import org.openmrs.module.ehospitalws.service.LLMMessagesService;
 import org.openmrs.module.ehospitalws.service.SmsService;
+import org.openmrs.module.ehospitalws.util.DateFormatterUtil;
 import org.openmrs.module.ehospitalws.web.constants.Constants;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 import static org.openmrs.module.ehospitalws.web.constants.Constants.*;
@@ -100,13 +102,34 @@ public class LLMController {
 	}
 	
 	@GetMapping("/messages/patient")
-	public ResponseEntity<List<LLMMessages>> getMessagesByPatient(@RequestParam("patientUuid") String patientUuid) {
+	public ResponseEntity<List<Map<String, Object>>> getMessagesByPatient(@RequestParam("patientUuid") String patientUuid) {
 		if (!Context.isAuthenticated()) {
-			return ResponseEntity.status(401).body(null);
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
 		}
 		
 		List<LLMMessages> messages = llmMessagesService.getMessagesByPatientUuid(patientUuid);
-		return ResponseEntity.ok(messages);
+		List<Map<String, Object>> responseList = new ArrayList<>();
+		
+		for (LLMMessages message : messages) {
+			Map<String, Object> messageData = new HashMap<>();
+			messageData.put("id", message.getId());
+			messageData.put("patientUuid", message.getPatientUuid());
+			messageData.put("phoneNumber", message.getPhoneNumber());
+			messageData.put("message", message.getMessage());
+			messageData.put("status", message.getStatus());
+			messageData.put("edited", message.getEdited());
+			messageData.put("reasonEdited", message.getReasonEdited());
+			messageData.put("regenerated", message.getRegenerated());
+			messageData.put("reasonRegenerated", message.getReasonRegenerated());
+			
+			messageData.put("createdAt", DateFormatterUtil.formatTimestamp(message.getCreatedTimestamp()));
+			messageData.put("sentAt", DateFormatterUtil.formatTimestamp(message.getSentTimestamp()));
+			messageData.put("successOrErrorMessage", message.getSuccessOrErrorMessage());
+			
+			responseList.add(messageData);
+		}
+		
+		return ResponseEntity.ok(responseList);
 	}
 	
 	@PostMapping("/message/send")
@@ -151,7 +174,8 @@ public class LLMController {
 	}
 	
 	@GetMapping("/messages/all")
-	public ResponseEntity<List<Map<String, Object>>> getAllMessages() {
+	public ResponseEntity<List<Map<String, Object>>> getAllMessages(@RequestParam(required = false) String startDate,
+	        @RequestParam(required = false) String endDate) {
 		if (!Context.isAuthenticated()) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
 		}
@@ -159,14 +183,37 @@ public class LLMController {
 		List<LLMMessages> messages = llmMessagesService.getAllMessages();
 		List<Map<String, Object>> responseList = new ArrayList<>();
 		
+		Timestamp startTimestamp = null;
+		Timestamp endTimestamp = null;
+		
+		try {
+			if (startDate != null && endDate != null) {
+				SimpleDateFormat inputDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+				startTimestamp = new Timestamp(inputDateFormat.parse(startDate).getTime());
+				endTimestamp = new Timestamp(inputDateFormat.parse(endDate).getTime() + (24 * 60 * 60 * 1000 - 1));
+			}
+		}
+		catch (ParseException e) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+			    Collections.singletonList(Collections.singletonMap("error", "Invalid date format. Use YYYY-MM-DD.")));
+		}
+		
 		for (LLMMessages message : messages) {
+			if (startTimestamp != null && endTimestamp != null) {
+				if (message.getCreatedTimestamp() == null || message.getCreatedTimestamp().before(startTimestamp)
+				        || message.getCreatedTimestamp().after(endTimestamp)) {
+					continue;
+				}
+			}
+			
 			Map<String, Object> messageData = new HashMap<>();
 			messageData.put("patientUuid", message.getPatientUuid());
 			messageData.put("patientName", constants.getPatientName(message.getPatientUuid()));
 			messageData.put("message", message.getMessage());
-			messageData.put("sentAt", message.getSentTimestamp());
+			messageData.put("createdAt", DateFormatterUtil.formatTimestamp(message.getCreatedTimestamp()));
+			messageData.put("sentAt", DateFormatterUtil.formatTimestamp(message.getSentTimestamp()));
 			messageData.put("status", message.getStatus());
-			messageData.put("SuccessOrErrorMessage", message.getSuccessOrErrorMessage());
+			messageData.put("successOrErrorMessage", message.getSuccessOrErrorMessage());
 			
 			responseList.add(messageData);
 		}
