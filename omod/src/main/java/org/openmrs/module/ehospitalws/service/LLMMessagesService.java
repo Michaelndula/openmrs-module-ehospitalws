@@ -12,9 +12,11 @@ public interface LLMMessagesService {
 	
 	List<LLMMessages> getMessagesByPatientUuid(String patientUuid);
 	
-	void updateMessageStatus(Long id, String status, Timestamp sentAt);
+	void updateMessageStatus(Long id, String status, Timestamp sentAt, String successOrErrorMessage);
 	
 	LLMMessages getMessageById(Long messageId);
 	
 	LLMMessages getLatestMessageByPatientUuid(String patientUuid);
+	
+	List<LLMMessages> getAllMessages();
 }
