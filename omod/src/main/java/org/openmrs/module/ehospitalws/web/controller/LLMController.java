@@ -9,6 +9,7 @@ import org.openmrs.api.context.Context;
 import org.openmrs.module.ehospitalws.model.LLMMessages;
 import org.openmrs.module.ehospitalws.service.LLMMessagesService;
 import org.openmrs.module.ehospitalws.service.SmsService;
+import org.openmrs.module.ehospitalws.util.DateFormatterUtil;
 import org.openmrs.module.ehospitalws.web.constants.Constants;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -125,13 +126,8 @@ public class LLMController {
 			messageData.put("regenerated", message.getRegenerated());
 			messageData.put("reasonRegenerated", message.getReasonRegenerated());
 			
-			messageData.put("createdAt",
-			    message.getCreatedTimestamp() != null ? dateFormat.format(new Date(message.getCreatedTimestamp().getTime()))
-			            : null);
-			messageData.put("sentAt",
-			    message.getSentTimestamp() != null ? dateFormat.format(new Date(message.getSentTimestamp().getTime()))
-			            : null);
-			
+			messageData.put("createdAt", DateFormatterUtil.formatTimestamp(message.getCreatedTimestamp()));
+			messageData.put("sentAt", DateFormatterUtil.formatTimestamp(message.getSentTimestamp()));
 			messageData.put("successOrErrorMessage", message.getSuccessOrErrorMessage());
 			
 			responseList.add(messageData);
@@ -196,6 +192,7 @@ public class LLMController {
 		
 		try {
 			if (startDate != null && endDate != null) {
+				SimpleDateFormat inputDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 				startTimestamp = new Timestamp(inputDateFormat.parse(startDate).getTime());
 				endTimestamp = new Timestamp(inputDateFormat.parse(endDate).getTime() + (24 * 60 * 60 * 1000 - 1));
 			}
@@ -206,13 +203,6 @@ public class LLMController {
 		}
 		
 		for (LLMMessages message : messages) {
-			String createdAtFormatted = message.getCreatedTimestamp() != null
-			        ? dateFormat.format(new Date(message.getCreatedTimestamp().getTime()))
-			        : null;
-			String sentAtFormatted = message.getSentTimestamp() != null
-			        ? dateFormat.format(new Date(message.getSentTimestamp().getTime()))
-			        : null;
-			
 			if (startTimestamp != null && endTimestamp != null) {
 				if (message.getCreatedTimestamp() == null || message.getCreatedTimestamp().before(startTimestamp)
 				        || message.getCreatedTimestamp().after(endTimestamp)) {
@@ -224,8 +214,8 @@ public class LLMController {
 			messageData.put("patientUuid", message.getPatientUuid());
 			messageData.put("patientName", constants.getPatientName(message.getPatientUuid()));
 			messageData.put("message", message.getMessage());
-			messageData.put("createdAt", createdAtFormatted);
-			messageData.put("sentAt", sentAtFormatted);
+			messageData.put("createdAt", DateFormatterUtil.formatTimestamp(message.getCreatedTimestamp()));
+			messageData.put("sentAt", DateFormatterUtil.formatTimestamp(message.getSentTimestamp()));
 			messageData.put("status", message.getStatus());
 			messageData.put("successOrErrorMessage", message.getSuccessOrErrorMessage());
 			
