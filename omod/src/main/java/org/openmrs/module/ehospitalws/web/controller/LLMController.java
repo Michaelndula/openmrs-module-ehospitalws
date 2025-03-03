@@ -20,6 +20,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 import static org.openmrs.module.ehospitalws.web.constants.Constants.*;
@@ -31,6 +32,10 @@ import static org.openmrs.module.ehospitalws.web.constants.Constants.*;
 @Controller
 @RequestMapping(value = "/rest/" + RestConstants.VERSION_1 + "/ehospital")
 public class LLMController {
+	
+	SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	
+	SimpleDateFormat inputDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 	
 	private final SmsService smsService;
 	
@@ -100,13 +105,39 @@ public class LLMController {
 	}
 	
 	@GetMapping("/messages/patient")
-	public ResponseEntity<List<LLMMessages>> getMessagesByPatient(@RequestParam("patientUuid") String patientUuid) {
+	public ResponseEntity<List<Map<String, Object>>> getMessagesByPatient(@RequestParam("patientUuid") String patientUuid) {
 		if (!Context.isAuthenticated()) {
-			return ResponseEntity.status(401).body(null);
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
 		}
 		
 		List<LLMMessages> messages = llmMessagesService.getMessagesByPatientUuid(patientUuid);
-		return ResponseEntity.ok(messages);
+		List<Map<String, Object>> responseList = new ArrayList<>();
+		
+		for (LLMMessages message : messages) {
+			Map<String, Object> messageData = new HashMap<>();
+			messageData.put("id", message.getId());
+			messageData.put("patientUuid", message.getPatientUuid());
+			messageData.put("phoneNumber", message.getPhoneNumber());
+			messageData.put("message", message.getMessage());
+			messageData.put("status", message.getStatus());
+			messageData.put("edited", message.getEdited());
+			messageData.put("reasonEdited", message.getReasonEdited());
+			messageData.put("regenerated", message.getRegenerated());
+			messageData.put("reasonRegenerated", message.getReasonRegenerated());
+			
+			messageData.put("createdAt",
+			    message.getCreatedTimestamp() != null ? dateFormat.format(new Date(message.getCreatedTimestamp().getTime()))
+			            : null);
+			messageData.put("sentAt",
+			    message.getSentTimestamp() != null ? dateFormat.format(new Date(message.getSentTimestamp().getTime()))
+			            : null);
+			
+			messageData.put("successOrErrorMessage", message.getSuccessOrErrorMessage());
+			
+			responseList.add(messageData);
+		}
+		
+		return ResponseEntity.ok(responseList);
 	}
 	
 	@PostMapping("/message/send")
@@ -151,7 +182,8 @@ public class LLMController {
 	}
 	
 	@GetMapping("/messages/all")
-	public ResponseEntity<List<Map<String, Object>>> getAllMessages() {
+	public ResponseEntity<List<Map<String, Object>>> getAllMessages(@RequestParam(required = false) String startDate,
+	        @RequestParam(required = false) String endDate) {
 		if (!Context.isAuthenticated()) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
 		}
@@ -159,14 +191,43 @@ public class LLMController {
 		List<LLMMessages> messages = llmMessagesService.getAllMessages();
 		List<Map<String, Object>> responseList = new ArrayList<>();
 		
+		Timestamp startTimestamp = null;
+		Timestamp endTimestamp = null;
+		
+		try {
+			if (startDate != null && endDate != null) {
+				startTimestamp = new Timestamp(inputDateFormat.parse(startDate).getTime());
+				endTimestamp = new Timestamp(inputDateFormat.parse(endDate).getTime() + (24 * 60 * 60 * 1000 - 1));
+			}
+		}
+		catch (ParseException e) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+			    Collections.singletonList(Collections.singletonMap("error", "Invalid date format. Use YYYY-MM-DD.")));
+		}
+		
 		for (LLMMessages message : messages) {
+			String createdAtFormatted = message.getCreatedTimestamp() != null
+			        ? dateFormat.format(new Date(message.getCreatedTimestamp().getTime()))
+			        : null;
+			String sentAtFormatted = message.getSentTimestamp() != null
+			        ? dateFormat.format(new Date(message.getSentTimestamp().getTime()))
+			        : null;
+			
+			if (startTimestamp != null && endTimestamp != null) {
+				if (message.getCreatedTimestamp() == null || message.getCreatedTimestamp().before(startTimestamp)
+				        || message.getCreatedTimestamp().after(endTimestamp)) {
+					continue;
+				}
+			}
+			
 			Map<String, Object> messageData = new HashMap<>();
 			messageData.put("patientUuid", message.getPatientUuid());
 			messageData.put("patientName", constants.getPatientName(message.getPatientUuid()));
 			messageData.put("message", message.getMessage());
-			messageData.put("sentAt", message.getSentTimestamp());
+			messageData.put("createdAt", createdAtFormatted);
+			messageData.put("sentAt", sentAtFormatted);
 			messageData.put("status", message.getStatus());
-			messageData.put("SuccessOrErrorMessage", message.getSuccessOrErrorMessage());
+			messageData.put("successOrErrorMessage", message.getSuccessOrErrorMessage());
 			
 			responseList.add(messageData);
 		}
