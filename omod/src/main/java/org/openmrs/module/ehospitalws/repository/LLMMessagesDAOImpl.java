@@ -40,11 +40,13 @@ public class LLMMessagesDAOImpl implements LLMMessagesDAO {
 	}
 	
 	@Override
-	public void updateMessageStatus(Long id, String status, Timestamp sentAt) {
+	public void updateMessageStatus(Long id, String status, Timestamp sentAt, String successOrErrorMessage) {
 		Session session = sessionFactory.getCurrentSession();
-		Query query = session.createQuery("UPDATE LLMMessages SET status = :status, sentTimestamp = :sentAt WHERE id = :id");
+		Query query = session.createQuery(
+		    "UPDATE LLMMessages SET status = :status, sentTimestamp = :sentAt, successOrErrorMessage = :successOrErrorMessage WHERE id = :id");
 		query.setParameter("status", status);
 		query.setParameter("sentAt", sentAt);
+		query.setParameter("successOrErrorMessage", successOrErrorMessage);
 		query.setParameter("id", id);
 		query.executeUpdate();
 	}
@@ -54,5 +56,11 @@ public class LLMMessagesDAOImpl implements LLMMessagesDAO {
 		return (LLMMessages) sessionFactory.getCurrentSession()
 		        .createQuery("FROM LLMMessages WHERE patientUuid = :patientUuid ORDER BY createdTimestamp DESC")
 		        .setParameter("patientUuid", patientUuid).setMaxResults(1).uniqueResult();
+	}
+	
+	@Override
+	public List<LLMMessages> getAllMessages() {
+		return sessionFactory.getCurrentSession()
+		        .createQuery("FROM LLMMessages ORDER BY createdTimestamp DESC", LLMMessages.class).list();
 	}
 }

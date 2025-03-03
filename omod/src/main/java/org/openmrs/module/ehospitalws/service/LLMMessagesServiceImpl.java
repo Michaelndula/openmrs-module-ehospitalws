@@ -30,8 +30,8 @@ public class LLMMessagesServiceImpl extends BaseOpenmrsService implements LLMMes
 	
 	@Override
 	@Transactional
-	public void updateMessageStatus(Long id, String status, Timestamp sentAt) {
-		llmMessagesDAO.updateMessageStatus(id, status, sentAt);
+	public void updateMessageStatus(Long id, String status, Timestamp sentAt, String successOrErrorMessage) {
+		llmMessagesDAO.updateMessageStatus(id, status, sentAt, successOrErrorMessage);
 	}
 	
 	@Override
@@ -44,5 +44,11 @@ public class LLMMessagesServiceImpl extends BaseOpenmrsService implements LLMMes
 	@Transactional(readOnly = true)
 	public LLMMessages getLatestMessageByPatientUuid(String patientUuid) {
 		return llmMessagesDAO.getLatestMessageByPatientUuid(patientUuid);
+	}
+	
+	@Override
+	@Transactional(readOnly = true)
+	public List<LLMMessages> getAllMessages() {
+		return llmMessagesDAO.getAllMessages();
 	}
 }

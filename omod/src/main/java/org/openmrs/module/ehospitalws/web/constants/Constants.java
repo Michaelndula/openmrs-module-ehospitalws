@@ -4,9 +4,10 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
+import org.openmrs.api.PersonService;
 import org.openmrs.api.context.Context;
-import org.openmrs.module.ehospitalws.web.controller.eHospitalWebServicesController;
 import org.openmrs.parameter.EncounterSearchCriteria;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.text.ParseException;
@@ -28,6 +29,9 @@ public class Constants {
 	public static DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault());
 	
 	public static final double THRESHOLD = 1000.0;
+	
+	@Autowired
+	private PersonService personService;
 	
 	public enum filterCategory {
 		CHILDREN_ADOLESCENTS,
@@ -425,5 +429,29 @@ public class Constants {
 				}
 			}
 		}
+	}
+	
+	public String getPatientPhoneNumber(String patientUuid) {
+		Person person = personService.getPersonByUuid(patientUuid);
+		
+		if (person == null) {
+			return null;
+		}
+		
+		PersonAttributeType phoneAttributeType = personService.getPersonAttributeTypeByUuid(PHONE_NUMBER_UUID);
+		if (phoneAttributeType == null) {
+			return null;
+		}
+		
+		PersonAttribute phoneAttribute = person.getAttribute(phoneAttributeType);
+		return (phoneAttribute != null) ? phoneAttribute.getValue() : null;
+	}
+	
+	public String getPatientName(String patientUuid) {
+		Person person = personService.getPersonByUuid(patientUuid);
+		if (person != null) {
+			return person.getGivenName() + " " + person.getFamilyName();
+		}
+		return "Unknown Patient";
 	}
 }

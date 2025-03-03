@@ -13,7 +13,9 @@ public interface LLMMessagesDAO {
 	
 	List<LLMMessages> getMessagesByPatientUuid(String patientUuid);
 	
-	void updateMessageStatus(Long id, String status, Timestamp sentAt);
+	void updateMessageStatus(Long id, String status, Timestamp sentAt, String successOrErrorMessage);
 	
 	LLMMessages getLatestMessageByPatientUuid(String patientUuid);
+	
+	List<LLMMessages> getAllMessages();
 }
