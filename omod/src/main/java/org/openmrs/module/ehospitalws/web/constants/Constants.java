@@ -163,7 +163,12 @@ public class Constants {
 		        Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
 		            diagnosisConcepts, null, null, null, null, null, null, null, null, false));
 		
-		return diagnosisObs.stream()
+		Visit latestVisit = getLatestVisit(patient);
+		if (latestVisit == null) {
+			return Collections.emptyList();
+		}
+		
+		return diagnosisObs.stream().filter(obs -> latestVisit.getEncounters().contains(obs.getEncounter()))
 		        .map(obs -> obs.getValueCoded() != null ? obs.getValueCoded().getName().getName() : obs.getValueText())
 		        .filter(Objects::nonNull).distinct().collect(Collectors.toList());
 	}
