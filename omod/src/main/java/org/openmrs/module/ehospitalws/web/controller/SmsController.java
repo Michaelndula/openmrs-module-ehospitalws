@@ -15,9 +15,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalTime;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
+import static org.openmrs.module.ehospitalws.task.ScheduledAppointmentReminderTask.LOCAL_TIMEZONE;
 import static org.openmrs.module.ehospitalws.web.constants.SharedConcepts.PHONE_NUMBER_UUID;
 
 @RestController
@@ -59,36 +62,32 @@ public class SmsController {
 	@ResponseBody
 	public ResponseEntity<String> sendAppointmentReminder(@RequestParam String patientUuid) {
 		try {
-			// Get the next appointment date
-			String appointmentDateTime = getNextAppointmentDate.getNextAppointmentDate(patientUuid);
+			LocalDate tomorrow = LocalDate.now(LOCAL_TIMEZONE).plusDays(1);
+			List<LocalDateTime> appointmentsForTomorrow = getNextAppointmentDate.getAppointmentsForDate(patientUuid,
+			    tomorrow);
 			
-			// Restrict sending message if no appointment
-			if (appointmentDateTime == null) {
+			if (appointmentsForTomorrow == null) {
 				return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No upcoming appointment found for the patient.");
 			}
 			
-			// Fetch patient details and phone number
+			String formattedTimes = appointmentsForTomorrow.stream().map(utcDateTime -> {
+				ZonedDateTime localDateTime = utcDateTime.atZone(ZoneOffset.UTC).withZoneSameInstant(LOCAL_TIMEZONE);
+				return localDateTime.format(DateTimeFormatter.ofPattern("hh:mm a"));
+			}).collect(Collectors.joining(", "));
+			
 			Object[] patientDetails = fetchPatientDetails(patientUuid);
-			if (patientDetails == null || patientDetails[2] == null) {
-				return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Phone number not found for the patient.");
-			}
 			
 			String firstName = (String) patientDetails[0];
 			String lastName = (String) patientDetails[1];
 			String phoneNumber = (String) patientDetails[2];
 			
-			// Determine the time of day
 			String timeOfDay = getTimeOfDay();
+			String tomorrowDateFormatted = tomorrow.format(DateTimeFormatter.ofPattern("dd-MMM-yyyy"));
 			
-			// Extract date and time from appointmentDateTime
-			String[] dateTimeParts = appointmentDateTime.split(" ");
-			String date = dateTimeParts[0];
-			String time = dateTimeParts[1];
-			
-			// Format the message
 			String message = String.format(
-			    "Good %s, %s %s, you have an upcoming appointment on %s at %s at ST. Josephs Health Center. Please be on time. Stay Healthy.",
-			    timeOfDay, firstName, lastName, date, time);
+			    "Good %s, %s %s, this is a reminder of your appointment(s) on %s at the following time(s): %s. "
+			            + "Location: ST. Josephs Health Center. Please be on time. Stay Healthy.",
+			    timeOfDay, firstName, lastName, tomorrowDateFormatted, formattedTimes);
 			
 			// Send SMS
 			boolean smsSent = smsService.sendSms(phoneNumber, message);
@@ -106,14 +105,12 @@ public class SmsController {
 	}
 	
 	private Object[] fetchPatientDetails(String patientUuid) {
-		// Get the patient from the PersonService using the UUID
 		Person person = personService.getPersonByUuid(patientUuid);
 		
 		if (person == null) {
 			throw new IllegalArgumentException("Patient not found for UUID: " + patientUuid);
 		}
 		
-		// Get the phone number from the person attributes
 		PersonAttributeType phoneAttributeType = personService.getPersonAttributeTypeByUuid(PHONE_NUMBER_UUID);
 		if (phoneAttributeType == null) {
 			throw new IllegalArgumentException("Phone attribute type not found.");
@@ -122,7 +119,6 @@ public class SmsController {
 		PersonAttribute phoneAttribute = person.getAttribute(phoneAttributeType);
 		String phoneNumber = phoneAttribute != null ? phoneAttribute.getValue() : null;
 		
-		// Return first name, last name, and phone number
 		return new Object[] { person.getGivenName(), person.getFamilyName(), phoneNumber };
 	}
 	

@@ -24,7 +24,15 @@ public class ScheduledMessageService {
 	
 	public void saveScheduledMessage(String patientUuid, String phoneNumber, String message, Date scheduledDate) {
 		ScheduledMessage scheduledMessage = new ScheduledMessage(null, patientUuid, phoneNumber, message, scheduledDate,
-		        "SCHEDULED", Timestamp.valueOf(LocalDateTime.now()));
+		        "SCHEDULED", null);
 		scheduledMessageDAO.saveScheduledMessage(scheduledMessage);
+	}
+	
+	public List<ScheduledMessage> getMessagesScheduledForTomorrow() {
+		return scheduledMessageDAO.getMessagesScheduledForTomorrow();
+	}
+	
+	public void updateMessageStatus(Long messageId, String status, Timestamp sentTimestamp) {
+		scheduledMessageDAO.updateMessageStatus(messageId, status, sentTimestamp);
 	}
 }
