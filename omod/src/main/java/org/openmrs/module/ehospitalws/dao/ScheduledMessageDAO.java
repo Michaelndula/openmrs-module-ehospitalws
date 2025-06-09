@@ -18,17 +18,16 @@ public class ScheduledMessageDAO {
 		this.jdbcTemplate = jdbcTemplate;
 	}
 	
-	// Retrieve messages scheduled for tomorrow and those sent today
 	public List<ScheduledMessage> getScheduledAndSentMessages() {
-		LocalDate tomorrow = LocalDate.now().plusDays(1);
-		LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
+		LocalDate today = LocalDate.now();
+		LocalDateTime startOfToday = today.atStartOfDay();
 		LocalDateTime endOfToday = startOfToday.plusDays(1).minusNanos(1);
 		
 		String sql = "SELECT id, patient_uuid, phone_number, message, scheduled_date, status, sent_timestamp "
 		        + "FROM scheduled_messages " + "WHERE scheduled_date = ? OR (sent_timestamp BETWEEN ? AND ?)";
 		
-		return jdbcTemplate.query(sql, this::mapRowToScheduledMessage, Date.valueOf(tomorrow),
-		    Timestamp.valueOf(startOfToday), Timestamp.valueOf(endOfToday));
+		return jdbcTemplate.query(sql, this::mapRowToScheduledMessage, Date.valueOf(today), Timestamp.valueOf(startOfToday),
+		    Timestamp.valueOf(endOfToday));
 	}
 	
 	// Save a new scheduled message
@@ -44,6 +43,20 @@ public class ScheduledMessageDAO {
 			ps.setString(5, message.getStatus());
 			ps.setTimestamp(6, message.getSentTimestamp());
 		});
+	}
+	
+	public List<ScheduledMessage> getMessagesScheduledForTomorrow() {
+		LocalDate tomorrow = LocalDate.now().plusDays(1);
+		
+		String sql = "SELECT id, patient_uuid, phone_number, message, scheduled_date, status, sent_timestamp "
+		        + "FROM scheduled_messages " + "WHERE status = 'SCHEDULED' AND scheduled_date = ?";
+		
+		return jdbcTemplate.query(sql, this::mapRowToScheduledMessage, Date.valueOf(tomorrow));
+	}
+	
+	public void updateMessageStatus(Long messageId, String status, Timestamp sentTimestamp) {
+		String sql = "UPDATE scheduled_messages SET status = ?, sent_timestamp = ? WHERE id = ?";
+		jdbcTemplate.update(sql, status, sentTimestamp, messageId);
 	}
 	
 	private ScheduledMessage mapRowToScheduledMessage(ResultSet rs, int rowNum) throws SQLException {
