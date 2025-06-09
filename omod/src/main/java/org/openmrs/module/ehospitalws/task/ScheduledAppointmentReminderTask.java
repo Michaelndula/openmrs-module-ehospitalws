@@ -11,6 +11,8 @@ import org.openmrs.module.ehospitalws.constants.queries.GetNextAppointmentDate;
 import org.openmrs.module.ehospitalws.service.ScheduledMessageService;
 import org.openmrs.module.ehospitalws.service.SmsService;
 import org.openmrs.module.ehospitalws.util.OpenMRSPropertiesUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -22,9 +24,12 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 @Component
 public class ScheduledAppointmentReminderTask {
+	
+	private static final Logger log = LoggerFactory.getLogger(ScheduledAppointmentReminderTask.class);
 	
 	@PersistenceContext
 	private EntityManager entityManager;
@@ -41,7 +46,7 @@ public class ScheduledAppointmentReminderTask {
 	@Autowired
 	private PersonService personService;
 	
-	private static final ZoneId LOCAL_TIMEZONE = ZoneId.of("Africa/Nairobi");
+	public static final ZoneId LOCAL_TIMEZONE = ZoneId.of("Africa/Nairobi");
 	
 	public ScheduledAppointmentReminderTask(SmsService smsService, GetNextAppointmentDate getNextAppointmentDate,
 	    ScheduledMessageService scheduledMessageService) {
@@ -50,8 +55,10 @@ public class ScheduledAppointmentReminderTask {
 		this.scheduledMessageService = scheduledMessageService;
 	}
 	
-	// Run every day at 5 PM EAT (14:00 UTC)
-	@Scheduled(cron = "0 0 14 * * ?")
+	/**
+	 * Runs every day at 5 PM EAT (14:10 UTC) to schedule messages for the next day.
+	 */
+	@Scheduled(cron = "0 10 17 * * ?", zone = "Africa/Nairobi")
 	public void sendAppointmentReminders() {
 		Context.openSession();
 		try {
@@ -60,45 +67,25 @@ public class ScheduledAppointmentReminderTask {
 			
 			Context.authenticate(adminUsername, adminPassword);
 			
-			// ✅ Proceed with appointment reminders logic
-			System.out.println("Authenticated as: " + adminUsername);
+			LocalDate tomorrow = LocalDate.now(LOCAL_TIMEZONE).plusDays(1);
 			
-			LocalDate tomorrow = LocalDate.now().plusDays(1);
-			DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-			
-			// Get all patients
 			List<Patient> allPatients = patientService.getAllPatients();
 			
 			for (Patient patient : allPatients) {
 				String patientUuid = patient.getUuid();
 				
-				// Get the next appointment date
-				String appointmentDateTime = getNextAppointmentDate.getNextAppointmentDate(patientUuid);
+				List<LocalDateTime> appointmentsForTomorrow = getNextAppointmentDate.getAppointmentsForDate(patientUuid,
+				    tomorrow);
 				
-				// Skip if no upcoming appointment
-				if (appointmentDateTime == null) {
+				if (appointmentsForTomorrow == null || appointmentsForTomorrow.isEmpty()) {
 					continue;
 				}
 				
-				// Extract date and time from appointmentDateTime
-				String[] dateTimeParts = appointmentDateTime.split(" ");
-				String appointmentDate = dateTimeParts[0];
-				String appointmentTimeStr = dateTimeParts[1];
+				String formattedTimes = appointmentsForTomorrow.stream().map(utcDateTime -> {
+					ZonedDateTime localDateTime = utcDateTime.atZone(ZoneOffset.UTC).withZoneSameInstant(LOCAL_TIMEZONE);
+					return localDateTime.format(DateTimeFormatter.ofPattern("hh:mm a"));
+				}).collect(Collectors.joining(", "));
 				
-				// Check if appointment is exactly tomorrow
-				if (!appointmentDate.equals(tomorrow.format(dateFormatter))) {
-					continue;
-				}
-				
-				// Convert appointment time to local timezone
-				LocalTime appointmentTime = LocalTime.parse(appointmentTimeStr);
-				ZonedDateTime utcDateTime = ZonedDateTime.of(tomorrow, appointmentTime, ZoneOffset.UTC);
-				ZonedDateTime localDateTime = utcDateTime.withZoneSameInstant(LOCAL_TIMEZONE);
-				
-				// Format the time correctly
-				String formattedTime = localDateTime.format(DateTimeFormatter.ofPattern("hh:mm a"));
-				
-				// Fetch patient details (First Name, Last Name, Phone Number)
 				Object[] patientDetails = fetchPatientDetails(patientUuid);
 				if (patientDetails == null || patientDetails[2] == null) {
 					continue;
@@ -108,29 +95,20 @@ public class ScheduledAppointmentReminderTask {
 				String lastName = (String) patientDetails[1];
 				String phoneNumber = (String) patientDetails[2];
 				
-				// Determine the time of day
 				String timeOfDay = getTimeOfDay();
+				String tomorrowDateFormatted = tomorrow.format(DateTimeFormatter.ofPattern("dd-MMM-yyyy"));
 				
-				// Format the message
 				String message = String.format(
-				    "Good %s, %s %s, you have an upcoming appointment on %s at %s at ST. Josephs Health Center. Please be on time. Stay Healthy.",
-				    timeOfDay, firstName, lastName, appointmentDate, formattedTime);
+				    "Good %s, %s %s, this is a reminder of your appointment(s) on %s at the following time(s): %s. "
+				            + "Location: ST. Josephs Health Center. Please be on time. Stay Healthy.",
+				    timeOfDay, firstName, lastName, tomorrowDateFormatted, formattedTimes);
 				
-				// Store scheduled message in database
 				scheduledMessageService.saveScheduledMessage(patientUuid, phoneNumber, message, Date.valueOf(tomorrow));
-				
-				// Send SMS
-				boolean smsSent = smsService.sendSms(phoneNumber, message);
-				
-				if (smsSent) {
-					System.out.println("SMS sent successfully to " + firstName + " " + lastName);
-				} else {
-					System.err.println("Failed to send SMS to " + firstName + " " + lastName);
-				}
+				log.info("Scheduled reminder for patient {} {}", firstName, lastName);
 			}
 		}
 		catch (Exception e) {
-			System.err.println("Error occurred while sending SMS reminders: " + e.getMessage());
+			log.error("Error occurred while scheduling SMS reminders", e);
 			e.printStackTrace();
 		}
 		finally {
@@ -159,7 +137,7 @@ public class ScheduledAppointmentReminderTask {
 	}
 	
 	private String getTimeOfDay() {
-		LocalTime now = LocalTime.now();
+		LocalTime now = LocalTime.now(LOCAL_TIMEZONE);
 		if (now.isBefore(LocalTime.NOON)) {
 			return "morning";
 		} else if (now.isBefore(LocalTime.of(17, 0))) {
