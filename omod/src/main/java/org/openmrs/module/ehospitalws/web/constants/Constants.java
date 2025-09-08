@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 
 import static org.openmrs.module.ehospitalws.web.constants.Orders.*;
 import static org.openmrs.module.ehospitalws.web.constants.SharedConcepts.*;
+import static org.openmrs.module.ehospitalws.web.constants.SharedConstants.*;
 
 @Component
 public class Constants {
@@ -124,32 +125,14 @@ public class Constants {
 		
 		return null;
 	}
-
-    public static String getPatientLLMConsent(Patient patient) {
-        List<Obs> llmObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
-                Collections.singletonList(Context.getConceptService().getConceptByUuid(LLM_CONSENT_UUID)), null, null, null, null,
-                null, null, null, null, false);
-
-        if (!llmObs.isEmpty()) {
-            Obs llmObservation = llmObs.get(0);
-            return llmObservation.getValueCoded().getName().getName();
-        }
-
-        return null;
-    }
-
-    public static String getPatientType(Patient patient) {
-        List<Obs> typeObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
-                Collections.singletonList(Context.getConceptService().getConceptByUuid(PATIENT_TYPE_UUID)), null, null, null, null,
-                null, null, null, null, false);
-
-        if (!typeObs.isEmpty()) {
-            Obs typeObservation = typeObs.get(0);
-            return typeObservation.getValueCoded().getName().getName();
-        }
-
-        return null;
-    }
+	
+	public static String getPatientLLMConsent(Patient patient) {
+		return getCodedObsValueFromActiveVisit(patient, LLM_CONSENT_UUID);
+	}
+	
+	public static String getPatientType(Patient patient) {
+		return getCodedObsValueFromActiveVisit(patient, PATIENT_TYPE_UUID);
+	}
 	
 	public static Double getPatientHeight(Patient patient) {
 		List<Obs> heightObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
