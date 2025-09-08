@@ -155,8 +155,10 @@ public class SharedConstants {
 	}
 	
 	public enum Flags {
-		LLM_CONSENT,
-		PATIENT_TYPE
+		LLM_CONSENT_YES,
+		LLM_CONSENT_NO,
+		PATIENT_TYPE_SHA,
+		PATIENT_TYPE_STANDARD
 	}
 	
 	/**
