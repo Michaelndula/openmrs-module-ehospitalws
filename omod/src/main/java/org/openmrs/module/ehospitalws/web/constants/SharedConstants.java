@@ -213,4 +213,36 @@ public class SharedConstants {
 		activeVisits.sort(Comparator.comparing(Visit::getStartDatetime).reversed());
 		return activeVisits.get(0);
 	}
+	
+	/**
+	 * helper method to get a coded observation's value from the current active visit.
+	 * 
+	 * @param patient The patient.
+	 * @param conceptUuid The UUID of the concept question.
+	 * @return The coded value's name or null if not found or no active visit.
+	 */
+	public static String getCodedObsValueFromActiveVisit(Patient patient, String conceptUuid) {
+		Visit activeVisit = getLatestActiveVisit(patient);
+		
+		if (activeVisit == null || activeVisit.getEncounters().isEmpty()) {
+			return null;
+		}
+		
+		List<Encounter> encountersInVisit = new ArrayList<>(activeVisit.getEncounters());
+		
+		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    encountersInVisit, Collections.singletonList(Context.getConceptService().getConceptByUuid(conceptUuid)), null,
+		    null, null, null, null, null, null, null, false);
+		
+		if (!obsList.isEmpty()) {
+			obsList.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+			Obs latestObs = obsList.get(0);
+			
+			if (latestObs.getValueCoded() != null && latestObs.getValueCoded().getName() != null) {
+				return latestObs.getValueCoded().getName().getName();
+			}
+		}
+		
+		return null;
+	}
 }
