@@ -45,4 +45,8 @@ public class SharedConcepts {
 	public static final String OPD_REVISIT_UUID = "68391cec-08be-454d-8182-ff4e567de66d";
 	
 	public static final String PHONE_NUMBER_UUID = "14d4f066-15f5-102d-96e4-000c29c2a5d7";
+
+	public static final String LLM_CONSENT_UUID = "b71c3f8e-68c2-4285-bb94-95b9f86ff51a";
+
+	public static final String PATIENT_TYPE_UUID = "d32ea3a0-017c-473f-99f4-fde9aa9ec6ce";
 }
