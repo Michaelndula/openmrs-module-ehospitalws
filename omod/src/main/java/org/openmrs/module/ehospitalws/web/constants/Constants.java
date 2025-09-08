@@ -124,6 +124,32 @@ public class Constants {
 		
 		return null;
 	}
+
+    public static String getPatientLLMConsent(Patient patient) {
+        List<Obs> llmObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+                Collections.singletonList(Context.getConceptService().getConceptByUuid(LLM_CONSENT_UUID)), null, null, null, null,
+                null, null, null, null, false);
+
+        if (!llmObs.isEmpty()) {
+            Obs llmObservation = llmObs.get(0);
+            return llmObservation.getValueCoded().getName().getName();
+        }
+
+        return null;
+    }
+
+    public static String getPatientType(Patient patient) {
+        List<Obs> typeObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+                Collections.singletonList(Context.getConceptService().getConceptByUuid(PATIENT_TYPE_UUID)), null, null, null, null,
+                null, null, null, null, false);
+
+        if (!typeObs.isEmpty()) {
+            Obs typeObservation = typeObs.get(0);
+            return typeObservation.getValueCoded().getName().getName();
+        }
+
+        return null;
+    }
 	
 	public static Double getPatientHeight(Patient patient) {
 		List<Obs> heightObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
