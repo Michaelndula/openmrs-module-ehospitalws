@@ -10,6 +10,7 @@
 package org.openmrs.module.ehospitalws.web.controller;
 
 import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -18,15 +19,20 @@ import java.util.function.BiPredicate;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.ehospitalws.web.constants.Constants;
 import org.openmrs.module.ehospitalws.web.constants.GeneratePatientListObj;
+import org.openmrs.module.ehospitalws.web.dto.PatientObservations;
 import org.openmrs.module.webservices.rest.web.RestConstants;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +41,7 @@ import java.util.Date;
 
 import static org.openmrs.module.ehospitalws.web.constants.Constants.*;
 import static org.openmrs.module.ehospitalws.web.constants.SharedConcepts.*;
+import static org.openmrs.module.ehospitalws.web.constants.SharedConstants.*;
 
 /**
  * This class configured as controller using annotation and mapped with the URL of
@@ -236,5 +243,37 @@ public class eHospitalWebServicesController {
 		
 		return generatePatientListObj.generatePatientListObj(new HashSet<>(outpatientClients), startDate, endDate,
 		    filterCategory, allPatientsObj);
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/patient/obs")
+	@ResponseBody
+	public Object getPatientsObservations(HttpServletRequest request, @RequestParam("patientUuid") String patientUuid)
+	        throws ParseException, IOException {
+		Patient patient = Context.getPatientService().getPatientByUuid(patientUuid);
+		if (StringUtils.isBlank(patientUuid)) {
+			return buildErrorResponse("You must specify patientUuid in the request!", HttpStatus.BAD_REQUEST);
+		}
+		if (patient == null) {
+			return buildErrorResponse("The provided patient was not found in the system!", HttpStatus.NOT_FOUND);
+		}
+		
+		PatientObservations observations = getPatientObservations(patient);
+		List<Map<String, String>> identifiersList = getIdentifiersList(patient);
+		
+		String formattedBirthDate = formatBirthdate(patient.getBirthdate());
+		long age = calculateAge(patient.getBirthdate());
+		
+		Map<String, Object> responseMap = buildResponseMap(patient, age, formattedBirthDate, identifiersList, observations);
+		
+		return new ResponseEntity<>(responseMap, new HttpHeaders(), HttpStatus.OK);
+	}
+	
+	private PatientObservations getPatientObservations(Patient patient) {
+		PatientObservations observations = new PatientObservations();
+		
+		observations.setLlmConsent(getPatientLLMConsent(patient));
+		observations.setPatientType(getPatientType(patient));
+		
+		return observations;
 	}
 }
